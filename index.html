@@ -923,7 +923,7 @@ function linesHTML(){
 function renderCoach(){
   const c=$('#coach');
   if(coach){
-    const who=target?`<div class="tgt">Отмечаете: <b>${esc(target.name||'без имени')}</b> · ${target.id} · ${target.st.balance} б.<button class="chipbtn" data-tgt-off>Мой дневник</button></div>`:`<div class="tgt">Отмечаете: <b>этот телефон</b> · ${S.id}</div>`;
+    const who=target?`<div class="tgt">Отмечаете: <b>${esc(target.name||'без имени')}</b> · ${target.id} · ${target.st.balance} б.<button class="chipbtn" data-tgt-off>Мой дневник</button><button class="chipbtn" data-bind>📲 Привязать этот телефон</button></div>`:`<div class="tgt">Отмечаете: <b>этот телефон</b> · ${S.id}</div>`;
     const list=ridersOpen?`<div class="rlist"><input id="rq" placeholder="Поиск по имени или ID" value="${esc(rq)}" autocomplete="off">${riders===null?'<p>Загружаю список…</p>':(()=>{const q=rq.trim().toLowerCase();const f=riders.filter(r=>!q||r.name.toLowerCase().includes(q)||r.id.toLowerCase().includes(q));return f.length?f.slice(0,60).map(r=>`<button class="ritem" data-rider="${r.id}"><b>${esc(r.name||'без имени')}</b><span>${r.id} · ${r.balance} б.</span></button>`).join(''):'<p>Никого не нашёл. Ученик появится в списке, когда откроет дневник с интернетом и впишет имя.</p>'})()}</div>`:'';
     c.innerHTML=`<div class="coach-on"><b>Режим тренера</b> — «Освоил», звёзды, бонусы и призы сохраняются в таблицу.${who}<div class="row"><button class="chipbtn" data-riders>👥 Ученики</button>${BONUS.map((b,i)=>`<button class="chipbtn" data-bonus="${i}">+${b[1]} ${esc(b[0].toLowerCase())}</button>`).join('')}<button class="chipbtn" data-coach-out>Выйти</button></div>${list}</div>`}
   else if(pinOpen){c.innerHTML=`<label for="pin">Код тренера</label><div class="row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"><button class="chipbtn" data-pin-go>Войти</button><button class="chipbtn" data-pin-x>Отмена</button>${pinErr?`<span class="err">${pinErr}</span>`:''}</div>`;setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0)}
@@ -987,6 +987,10 @@ document.addEventListener('click',e=>{
   if(e.target.closest('[data-coach-out]')){setCoach(false);render();toast('Режим тренера выключен');return}
   if(e.target.closest('[data-riders]')){openRiders();return}
   if(e.target.closest('[data-tgt-off]')){target=null;render();pull();return}
+  if(e.target.closest('[data-bind]')){if(!target)return;
+    if(!confirm('Привязать ЭТОТ телефон к ученику «'+(target.name||target.id)+'» ('+target.id+')?\n\nДелайте это на телефоне самого ученика, если он сменил телефон или переустановил приложение. Его баллы, звёзды и «Освоил» появятся здесь.'))return;
+    const old=S.id;S.id=target.id;S.name=target.name||S.name;S.p={};S.lines={};S.srv=null;const st=target.st;target=null;mergeServer(st);save();setCoach(false);render();
+    toast('Телефон привязан к '+S.id+(old!==S.id?' (старый ID '+old+' больше не используется)':''));return}
   const rd=e.target.closest('[data-rider]');if(rd){pickRider(rd.dataset.rider);return}
   const bo=e.target.closest('[data-bonus]');if(bo){const b=BONUS[+bo.dataset.bonus];award({a:'bonus',title:b[0],pts:b[1]}).then(r=>r&&toast('+'+b[1]+' б.: '+b[0].toLowerCase()));return}
   const pr=e.target.closest('[data-prize]');if(pr){const p=PRIZES[+pr.dataset.prize];if(coach&&balance()>=p[1]&&confirm('Выдать приз «'+p[0]+'» за '+p[1]+' баллов?'))award({a:'prize',title:p[0],cost:p[1]}).then(r=>r&&toast('Приз выдан: '+p[0]));return}
