@@ -131,6 +131,11 @@ ol.list li::before{counter-increment:w;content:counter(w);position:absolute;left
 .coach input{font-family:var(--body);font-size:18px;border:2px solid var(--line);border-radius:6px;padding:8px 10px;width:130px;background:var(--bg);display:inline-block;margin:0}
 .chipbtn{border:2px solid var(--line);background:var(--paper);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:700;cursor:pointer}
 .coach-on{background:var(--ink);color:var(--bg);border-radius:6px;padding:10px 12px}
+.tgt{margin:8px 0 2px;font-size:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rlist{margin-top:10px;max-height:60vh;overflow:auto}
+.rlist input{width:100%;font:inherit;font-size:16px;padding:8px 10px;border-radius:6px;border:2px solid var(--bg);margin-bottom:8px;background:var(--bg);color:var(--ink)}
+.ritem{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--bg);color:var(--ink);border:0;border-radius:6px;padding:10px 12px;margin-bottom:6px;font:inherit;cursor:pointer}
+.ritem span{color:var(--muted);font-size:13px}
 .coach-on .chipbtn{background:var(--bg);color:var(--ink)}
 .err{color:#D0021B;font-weight:700;font-size:13px;margin-left:8px}
 .wallet{background:var(--paper);border:2.5px solid var(--line);border-radius:6px;padding:16px;box-shadow:5px 5px 0 var(--acc);margin:12px 0}
@@ -827,7 +832,6 @@ TERMS.begovel=TERMS.moto;
 const T=k=>TERMS[k||S.disc]||TERMS.def;
 const LBL=['Не начат','Пробую','Получается','Освоил'];
 const KEY='rider-diary-v2';
-const PIN_HASH='2f9fd7b4';
 /* ===== Онлайн-таблица: вставьте сюда ссылку веб-приложения Google Apps Script ===== */
 const SYNC_URL='https://script.google.com/macros/s/AKfycbz0ZiGjUR2xK8wOg1BdzRkTva88MiYhoDCm8X1QMRWciDFxflIc-oq1F0rFuKjvy5GJ/exec';
 const uid=()=>Math.random().toString(36).slice(2,8).toUpperCase();
@@ -841,13 +845,42 @@ function syncNow(){
   const body={id:S.id,name:S.name||'',updated:new Date().toISOString(),balance:balance(),earned:earned(),spent:-log.filter(x=>x.pts<0).reduce((a,x)=>a+x.pts,0),bonus:log.filter(x=>x.pts>0).reduce((a,x)=>a+x.pts,0),disciplines:disc,log:log.slice(-50)};
   try{fetch(SYNC_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).catch(()=>{})}catch(e){}
 }
-const hsh=s=>{let x=2166136261;for(const c of 'rider:'+s){x^=c.charCodeAt(0);x=Math.imul(x,16777619)>>>0}return x.toString(16)};
-let coach=false,coachTimer=null,pinErr='',pinOpen=false;
-function setCoach(on){coach=on;clearTimeout(coachTimer);if(on)coachTimer=setTimeout(()=>{coach=false;render();toast('Режим тренера выключен')},20*60*1000)}
+const SERVER=/^https:\/\//.test(SYNC_URL);
+let coach=false,coachPin='',coachTimer=null,pinErr='',pinOpen=false,busy=false;
+let target=null,riders=null,rq='',ridersOpen=false;   /* target: ученик, которого тренер отмечает со своего телефона */
+function setCoach(on,pin){coach=on;coachPin=on?pin:'';clearTimeout(coachTimer);if(!on){target=null;ridersOpen=false;riders=null}
+  if(on)coachTimer=setTimeout(()=>{setCoach(false);render();toast('Режим тренера выключен')},20*60*1000)}
+async function api(body){const r=await fetch(SYNC_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)});return r.json()}
+async function getState(id){const r=await fetch(SYNC_URL+'?a=state&id='+encodeURIComponent(id));return r.json()}
+function toLocal(st){const p={},ln={};const E=(st&&st.elements)||{};for(const disc in E)for(const key in E[disc]){const v=E[disc][key];
+  if(key[0]==='L'){(ln[disc]=ln[disc]||[])[+key.slice(1)]={txt:'',s:3,st:v.st,d:v.d}}else (p[disc]=p[disc]||{})[key]={s:3,st:v.st,d:v.d}}return{p,ln}}
+function mergeServer(st){if(!st||!st.ok)return;S.srv={balance:st.balance,earned:st.earned,bonus:st.bonus,spent:st.spent,log:st.log||[]};
+  const E=st.elements||{};
+  ORDER.forEach(disc=>{const p=S.p[disc]||(S.p[disc]={}),e=E[disc]||{};
+    for(const k in p){if(p[k]&&p[k].s===3&&!e[k]){p[k].s=2;p[k].st=0;p[k].d=''}}
+    const la=S.lines[disc]||(S.lines[disc]=[]);la.forEach((r,i)=>{if(r&&r.s===3&&!e['L'+i]){r.s=2;r.st=0;r.d=''}});
+    for(const k in e){const v=e[k];if(k[0]==='L'){const i=+k.slice(1);la[i]=Object.assign(la[i]||{txt:''},{s:3,st:v.st,d:v.d})}else p[k]=Object.assign(p[k]||{},{s:3,st:v.st,d:v.d})}});
+  try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+async function pull(){if(!SERVER||target||!navigator.onLine)return;try{const st=await getState(S.id);if(st&&st.ok){mergeServer(st);render()}}catch(e){}}
+function setTarget(r,st){const l=toLocal(st);target={id:r.id,name:st.name||r.name||'',st,p:l.p,ln:l.ln};ridersOpen=false;window.scrollTo(0,0);render()}
+async function award(body){
+  if(!coach){toast('Отмечать может только тренер');return}
+  if(!SERVER){toast('Онлайн-таблица не подключена');return}
+  if(busy)return;busy=true;document.body.style.cursor='progress';
+  const who=target||{id:S.id,name:S.name||''};
+  try{const st=await api(Object.assign({pin:coachPin,id:who.id,name:who.name},body));
+    if(st&&st.ok){if(target)setTarget(target,st);else{mergeServer(st);render()}return st}
+    toast(st&&st.err==='pin'?'Код тренера не принят — войдите заново':st&&st.err==='balance'?'Не хватает баллов':'Не сохранилось, попробуйте ещё раз');
+    if(st&&st.err==='pin'){setCoach(false);render()}
+  }catch(e){toast('Нет интернета — отметка не сохранена')}
+  finally{busy=false;document.body.style.cursor=''}}
+async function openRiders(){ridersOpen=true;riders=null;render();try{const r=await api({a:'riders',pin:coachPin});riders=r.ok?r.riders:[];if(!r.ok&&r.err==='pin'){setCoach(false)}}catch(e){riders=[];toast('Нет интернета')}render()}
+async function pickRider(id){const r=(riders||[]).find(x=>x.id===id)||{id};try{const st=await getState(id);setTarget(r,st)}catch(e){toast('Нет интернета')}}
 function toast(m){const el=$('#toast');el.textContent=m;el.hidden=false;clearTimeout(el._t);el._t=setTimeout(()=>el.hidden=true,2600)}
 function earned(){let n=0;ORDER.forEach(k=>{const p=S.p[k]||{};for(const id in p){const r=p[id];if(r.s!==3||!r.st)continue;const [l,x]=id.split('-');n+=r.st*WEIGHT[+l]*(x[0]==='c'?COMBO_X:1)}(S.lines[k]||[]).forEach(r=>{if(r&&r.s===3&&r.st)n+=r.st*LINE_W})});return n}
 const wallet=()=>S.wallet||(S.wallet={log:[]});
-const balance=()=>earned()+wallet().log.reduce((a,x)=>a+x.pts,0);
+const balance=()=>target?target.st.balance:SERVER?((S.srv&&S.srv.balance)||0):earned()+wallet().log.reduce((a,x)=>a+x.pts,0);
+const logList=()=>target?(target.st.log||[]):SERVER?((S.srv&&S.srv.log)||[]):wallet().log;
 const today=()=>new Date().toLocaleDateString('ru-RU');
 function starsHTML(key,st,w){const pts=(st||0)*w;return `<div class="stars">${[1,2,3].map(n=>`<button class="sb${n<=(st||0)?' on':''}" data-star="${n}" data-sk="${key}" aria-label="Оценка ${n} из 3" aria-disabled="${!coach}">★</button>`).join('')}<span class="pt">${pts?'+'+pts+' б.':(coach?'поставь оценку':'ждёт оценки тренера')}</span></div>`}
 
@@ -857,12 +890,12 @@ const logosHTML=()=>BRAND_ORDER.map(k=>`<img src="${LOGOS[k]}" alt="${BRAND_ALT[
 let S={name:'',disc:'trampoline',p:{},lines:{},wallet:{log:[]}};
 try{const v=localStorage.getItem(KEY);if(v)S=Object.assign(S,JSON.parse(v))}catch(e){}
 if(!D[S.disc])S.disc='trampoline';if(!S.id){S.id='R-'+Math.random().toString(36).slice(2,7).toUpperCase();try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}if(!S.lines)S.lines={};
-const lines=()=>{const a=S.lines[S.disc]||(S.lines[S.disc]=[]);for(let i=0;i<5;i++)if(!a[i])a[i]={txt:'',s:0,d:''};return a};
+const lines=()=>{const a=target?(target.ln[S.disc]||(target.ln[S.disc]=[])):(S.lines[S.disc]||(S.lines[S.disc]=[]));for(let i=0;i<5;i++)if(!a[i])a[i]={txt:'',s:0,d:''};return a};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){};clearTimeout(syncT);syncT=setTimeout(syncNow,2500)};
 let tab='tricks';
 const $=s=>document.querySelector(s);
 const esc=t=>String(t).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-const prog=()=>S.p[S.disc]||(S.p[S.disc]={});
+const prog=()=>target?(target.p[S.disc]||(target.p[S.disc]={})):(S.p[S.disc]||(S.p[S.disc]={}));
 const items=L=>[...L[0].map((t,i)=>({t,id:'t'+i,combo:0})),...L[1].map((t,i)=>({t,id:'c'+i,combo:1}))];
 const sOf=(l,id)=>(prog()[l+'-'+id]||{}).s||0;
 const stampSVG=d=>`<svg class="stamp" viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="5"/><circle cx="50" cy="50" r="36" fill="none" stroke="currentColor" stroke-width="2"/><text x="50" y="47" text-anchor="middle" font-family="Rubik Mono One,Arial Black" font-size="15" fill="currentColor">ОСВОИЛ</text><text x="50" y="65" text-anchor="middle" font-family="Rubik,Arial" font-weight="700" font-size="11" fill="currentColor">${d}</text></svg>`;
@@ -885,12 +918,15 @@ function row(l,x){
 function linesHTML(){
   const L=LINES[S.disc],a=lines(),dn=a.filter(x=>x.s===3).length;
   return `<div class="level" id="lines"><h2>${L.many}</h2><span class="n">${dn} из 5</span></div><p class="note">Придумай с тренером пять своих комбинаций и впиши их сюда. ${L.ex}.</p>`+
-  a.map((x,i)=>`<div class="line${x.s===3?' done':''}"><div class="line-h"><h3>${L.one} ${i+1}</h3><button class="st" data-line="${i}" data-s="${x.s}" aria-label="${L.one} ${i+1}: ${LBL[x.s]}">${LBL[x.s]}</button></div><textarea data-ltxt="${i}" rows="2" maxlength="300" placeholder="Впиши ${T().pl} через тире" aria-label="${L.one} ${i+1}">${esc(x.txt)}</textarea>${x.s===3?starsHTML('l:'+i,x.st,LINE_W):''}${x.s===3?stampSVG(x.d||''):''}</div>`).join('');
+  a.map((x,i)=>`<div class="line${x.s===3?' done':''}"><div class="line-h"><h3>${L.one} ${i+1}</h3><button class="st" data-line="${i}" data-s="${x.s}" aria-label="${L.one} ${i+1}: ${LBL[x.s]}">${LBL[x.s]}</button></div><textarea data-ltxt="${i}" ${target?'readonly':''} rows="2" maxlength="300" placeholder="Впиши ${T().pl} через тире" aria-label="${L.one} ${i+1}">${esc(x.txt)}</textarea>${x.s===3?starsHTML('l:'+i,x.st,LINE_W):''}${x.s===3?stampSVG(x.d||''):''}</div>`).join('');
 }
 function renderCoach(){
   const c=$('#coach');
-  if(coach){c.innerHTML=`<div class="coach-on"><b>Режим тренера</b> — можно ставить «Освоил», звёзды, бонусы и выдавать призы.<div class="row">${BONUS.map((b,i)=>`<button class="chipbtn" data-bonus="${i}">+${b[1]} ${esc(b[0].toLowerCase())}</button>`).join('')}<button class="chipbtn" data-coach-out>Выйти</button></div></div>`}
-  else if(pinOpen){c.innerHTML=`<label for="pin">Код тренера</label><div class="row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="8"><button class="chipbtn" data-pin-go>Войти</button><button class="chipbtn" data-pin-x>Отмена</button>${pinErr?`<span class="err">${pinErr}</span>`:''}</div>`;setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0)}
+  if(coach){
+    const who=target?`<div class="tgt">Отмечаете: <b>${esc(target.name||'без имени')}</b> · ${target.id} · ${target.st.balance} б.<button class="chipbtn" data-tgt-off>Мой дневник</button></div>`:`<div class="tgt">Отмечаете: <b>этот телефон</b> · ${S.id}</div>`;
+    const list=ridersOpen?`<div class="rlist"><input id="rq" placeholder="Поиск по имени или ID" value="${esc(rq)}" autocomplete="off">${riders===null?'<p>Загружаю список…</p>':(()=>{const q=rq.trim().toLowerCase();const f=riders.filter(r=>!q||r.name.toLowerCase().includes(q)||r.id.toLowerCase().includes(q));return f.length?f.slice(0,60).map(r=>`<button class="ritem" data-rider="${r.id}"><b>${esc(r.name||'без имени')}</b><span>${r.id} · ${r.balance} б.</span></button>`).join(''):'<p>Никого не нашёл. Ученик появится в списке, когда откроет дневник с интернетом и впишет имя.</p>'})()}</div>`:'';
+    c.innerHTML=`<div class="coach-on"><b>Режим тренера</b> — «Освоил», звёзды, бонусы и призы сохраняются в таблицу.${who}<div class="row"><button class="chipbtn" data-riders>👥 Ученики</button>${BONUS.map((b,i)=>`<button class="chipbtn" data-bonus="${i}">+${b[1]} ${esc(b[0].toLowerCase())}</button>`).join('')}<button class="chipbtn" data-coach-out>Выйти</button></div>${list}</div>`}
+  else if(pinOpen){c.innerHTML=`<label for="pin">Код тренера</label><div class="row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"><button class="chipbtn" data-pin-go>Войти</button><button class="chipbtn" data-pin-x>Отмена</button>${pinErr?`<span class="err">${pinErr}</span>`:''}</div>`;setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0)}
   else c.innerHTML=`<button class="chipbtn" data-pin-open>🔒 Тренер</button>`;
 }
 function render(){
@@ -898,7 +934,7 @@ function render(){
   document.documentElement.style.setProperty('--acc',d.c);
   $('#heroDisc').textContent=d.name.toLowerCase();$('#heroVerb').textContent=T().hero;$('#tabTricks').textContent=T().tab;
   $('#disc').innerHTML=ORDER.map(k=>`<button class="chip" style="--c:${D[k].c};--r:${D[k].r}" data-k="${k}" aria-pressed="${k===S.disc}">${D[k].name}</button>`).join('');
-  $('#name').value=S.name||'';$('#rid').textContent='ID '+S.id;
+  $('#name').value=target?(target.name||''):(S.name||'');$('#name').readOnly=!!target;$('#rid').textContent='ID '+(target?target.id:S.id);
   const st=stats(),stk=st.lv.filter(Boolean).length;
   $('#sDone').textContent=st.done+' / '+st.tot;$('#sWork').textContent=st.work;$('#sStk').textContent=stk+' / '+d.levels.length;
   $('#sPts').textContent=balance();renderCoach();
@@ -909,7 +945,7 @@ function render(){
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===tab));
   const v=$('#view');
   if(tab==='tricks'){
-    v.innerHTML=`<div class="safety"><b>Перед тренировкой</b>Разминка 10–15 минут, экипировка надета и застёгнута. После — заминка. <button data-t2="warm">Разминка и безопасность</button></div><p class="note">Жми кнопку справа: не начат → пробую → получается. «Освоил» и звёзды ставит тренер. Связки — комбинации уже освоенных ${T().gen}. С жёлтой меткой — только с тренером.</p>`+
+    v.innerHTML=`<div class="safety"><b>Перед тренировкой</b>Разминка 10–15 минут, экипировка надета и застёгнута. После — заминка. <button data-t2="warm">Разминка и безопасность</button></div><p class="note">Жми кнопку справа: не начат → пробую → получается. «Освоил», звёзды и баллы ставит только тренер — со своего телефона или с твоего. Связки — комбинации уже освоенных ${T().gen}. С жёлтой меткой — только с тренером.</p>`+
     `<div class="lvl-nav">${LEVELS.map((n,l)=>`<button data-go="${l}" class="${st.lv[l]?'full':''}">${n}</button>`).join('')}<button data-go="lines">${LINES[S.disc].many}</button></div>`+
     d.levels.map((L,l)=>{const all=items(L),dn=all.filter(x=>sOf(l,x.id)===3).length;
       return `<div class="level" id="lv${l}"><h2>${LEVELS[l]}</h2><span class="n">${dn} из ${all.length}</span></div>`+
@@ -937,7 +973,7 @@ function render(){
     `<div class="blk">Призы</div>${PRIZES.map((p,i)=>`<div class="prize${bal>=p[1]?' ok':''}"><span>${esc(p[0])}</span><b>${p[1]}</b>${coach?`<button class="chipbtn" data-prize="${i}" ${bal>=p[1]?'':'disabled'}>Выдать</button>`:'<span></span>'}</div>`).join('')}`+
     `<div class="blk">Как получить баллы</div><ul class="list"><li><b>Звёзды за элемент</b><span>${STAR_TXT.map(x=>x[0]+' — '+x[1].toLowerCase()).join('; ')}. Звёзды ставит только тренер.</span></li><li><b>Сколько стоит звезда</b><span>${LEVELS.map((n,l)=>n+' ×'+WEIGHT[l]).join(', ')}. Связки ×2, свои линии — ×${LINE_W} за звезду.</span></li><li><b>Бонусы от тренера</b><span>${BONUS.map(b=>b[0].toLowerCase()+' +'+b[1]).join(', ')}.</span></li></ul>`+
     `<div class="blk">Наклейки уровней</div><p class="note">Закрой все ${T().pl} и связки уровня — получишь наклейку. На ресепшене обменяй её на настоящую.</p><div class="stickers">${d.levels.map((L,l)=>{const all=items(L);return st.lv[l]?`<div class="stk on" style="--r:${rots[l]}"><div><big>${LEVELS[l]}</big>${d.name}</div></div>`:`<div class="stk"><div><big>🔒</big>${LEVELS[l]}<br>${all.filter(x=>sOf(l,x.id)===3).length} / ${all.length}</div></div>`}).join('')}</div>`+
-    (wallet().log.length?`<div class="blk">История баллов</div><ul class="log">${wallet().log.slice(-20).reverse().map(x=>`<li><span>${x.d} · ${esc(x.txt)}</span><b>${x.pts>0?'+':''}${x.pts}</b></li>`).join('')}</ul>`:'');
+    (logList().length?`<div class="blk">История баллов</div><ul class="log">${logList().slice(-20).reverse().map(x=>`<li><span>${x.d} · ${esc(x.txt)}</span><b>${x.pts>0?'+':''}${x.pts}</b></li>`).join('')}</ul>`:'');
   }
 }
 document.addEventListener('click',e=>{
@@ -949,21 +985,29 @@ document.addEventListener('click',e=>{
   if(e.target.closest('[data-pin-x]')){pinOpen=false;render();return}
   if(e.target.closest('[data-pin-go]')){tryPin();return}
   if(e.target.closest('[data-coach-out]')){setCoach(false);render();toast('Режим тренера выключен');return}
-  const bo=e.target.closest('[data-bonus]');if(bo){const b=BONUS[+bo.dataset.bonus];wallet().log.push({id:uid(),d:today(),txt:b[0],pts:b[1]});save();render();toast('+'+b[1]+' б.: '+b[0].toLowerCase());return}
-  const pr=e.target.closest('[data-prize]');if(pr){const p=PRIZES[+pr.dataset.prize];if(coach&&balance()>=p[1]&&confirm('Выдать приз «'+p[0]+'» за '+p[1]+' баллов?')){wallet().log.push({id:uid(),d:today(),txt:'Приз: '+p[0],pts:-p[1]});save();render();toast('Приз выдан: '+p[0])}return}
-  const sb=e.target.closest('[data-star]');if(sb){if(!coach){toast('Звёзды ставит только тренер');return}const [kind,id]=sb.dataset.sk.split(':'),r=kind==='l'?lines()[+id]:prog()[id];const n=+sb.dataset.star;r.st=r.st===n?n-1:n;save();render();return}
-  const ln=e.target.closest('[data-line]');if(ln){const r=lines()[+ln.dataset.line];cycle(r);save();render();return}
-  const b=e.target.closest('.st');if(b){const p=prog(),r=p[b.dataset.id]||{};cycle(r);p[b.dataset.id]=r;save();render();return}
+  if(e.target.closest('[data-riders]')){openRiders();return}
+  if(e.target.closest('[data-tgt-off]')){target=null;render();pull();return}
+  const rd=e.target.closest('[data-rider]');if(rd){pickRider(rd.dataset.rider);return}
+  const bo=e.target.closest('[data-bonus]');if(bo){const b=BONUS[+bo.dataset.bonus];award({a:'bonus',title:b[0],pts:b[1]}).then(r=>r&&toast('+'+b[1]+' б.: '+b[0].toLowerCase()));return}
+  const pr=e.target.closest('[data-prize]');if(pr){const p=PRIZES[+pr.dataset.prize];if(coach&&balance()>=p[1]&&confirm('Выдать приз «'+p[0]+'» за '+p[1]+' баллов?'))award({a:'prize',title:p[0],cost:p[1]}).then(r=>r&&toast('Приз выдан: '+p[0]));return}
+  const sb=e.target.closest('[data-star]');if(sb){if(!coach){toast('Звёзды ставит только тренер');return}const [kind,id]=sb.dataset.sk.split(':'),r=kind==='l'?lines()[+id]:prog()[id];const n=+sb.dataset.star;awardEl(kind==='l'?'L'+id:id,r.st===n?n-1:n,false);return}
+  const ln=e.target.closest('[data-line]');if(ln){const i=+ln.dataset.line,r=lines()[i];if(coach){awardEl('L'+i,r.st||0,r.s===3);return}if(target)return;cycle(r);save();render();return}
+  const b=e.target.closest('.st');if(b){const p=prog(),r=p[b.dataset.id]||{};if(coach){awardEl(b.dataset.id,r.st||0,r.s===3);return}if(target)return;cycle(r);p[b.dataset.id]=r;save();render();return}
 });
 $('#name').addEventListener('input',e=>{S.name=e.target.value;save()});
+function elInfo(key){if(key[0]==='L'){const i=+key.slice(1);return{title:LINES[S.disc].one+' '+(i+1),weight:LINE_W}}
+  const [l,x]=key.split('-'),L=D[S.disc].levels[+l],it=x[0]==='c'?L[1][+x.slice(1)]:L[0][+x.slice(1)];return{title:it?it[0]:key,weight:WEIGHT[+l]*(x[0]==='c'?COMBO_X:1)}}
+function awardEl(key,stars,unmaster){if(unmaster&&!confirm('Снять отметку «Освоил»?'))return;const i=elInfo(key);award({a:'element',disc:S.disc,key,title:i.title,weight:i.weight,stars,unmaster})}
 function cycle(r){const s=r.s||0;
-  if(coach){r.s=(s+1)%4;if(r.s===3){r.d=today();r.st=r.st||0}else{r.d='';r.st=0}return}
   if(s===3){toast('Отметку «Освоил» меняет только тренер');return}
   r.s=(s+1)%3;if(r.s===2)toast('Получается? Покажи тренеру — «Освоил» ставит он');}
-function tryPin(){const p=$('#pin');if(p&&hsh(p.value)===PIN_HASH){pinOpen=false;pinErr='';setCoach(true);render();toast('Режим тренера на 20 минут')}else{pinErr='Неверный код';render()}}
+async function tryPin(){const p=$('#pin');if(!p)return;const v=p.value.trim();if(!v)return;
+  if(!SERVER){pinErr='Онлайн-таблица не подключена';render();return}
+  pinErr='Проверяю…';try{const r=await api({a:'login',pin:v});if(r&&r.ok){pinOpen=false;pinErr='';setCoach(true,v);render();toast('Режим тренера на 20 минут')}else pinErr='Неверный код';}
+  catch(e){pinErr='Нужен интернет'}render()}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pin')tryPin()});
-document.addEventListener('input',e=>{const x=e.target.closest('[data-ltxt]');if(x){lines()[+x.dataset.ltxt].txt=x.value;save()}});
-$('#reset').onclick=()=>{if(!coach){toast('Сбросить прогресс может только тренер');return}if(confirm('Сбросить прогресс по дисциплине «'+D[S.disc].name+'»?')){S.p[S.disc]={};S.lines[S.disc]=[];save();render()}};
+document.addEventListener('input',e=>{if(e.target.id==='rq'){rq=e.target.value;const pos=e.target.selectionStart;render();const q=$('#rq');if(q){q.focus();q.setSelectionRange(pos,pos)}return}const x=e.target.closest('[data-ltxt]');if(x&&target)return;if(x){lines()[+x.dataset.ltxt].txt=x.value;save()}});
+$('#reset').onclick=()=>{if(!coach){toast('Сбросить прогресс может только тренер');return}if(target){toast('Сброс работает только на телефоне ученика');return}if(confirm('Сбросить прогресс по дисциплине «'+D[S.disc].name+'»?')){S.p[S.disc]={};S.lines[S.disc]=[];save();render()}};
 $('#theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
 $('#brands').innerHTML=logosHTML();
 
@@ -997,7 +1041,7 @@ function booklet(k){
 $('#openBk').onclick=()=>{$('#pages').innerHTML=booklet();$('#app').style.display='none';$('#booklet').style.display='block';scrollTo(0,0)};
 $('#closeBk').onclick=()=>{$('#booklet').style.display='none';$('#app').style.display='block'};
 $('#printBk').onclick=()=>{try{print()}catch(e){}};
-render();
+render();pull();setInterval(pull,60000);addEventListener('online',pull);document.addEventListener('visibilitychange',()=>{if(!document.hidden)pull()});
 </script>
 <script>
 if('serviceWorker' in navigator){addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}))}
