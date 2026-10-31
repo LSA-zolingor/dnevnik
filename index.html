@@ -57,6 +57,12 @@ img{max-width:100%}
 .card{background:var(--paper);border:2.5px solid var(--line);border-radius:6px;padding:16px;box-shadow:6px 6px 0 var(--acc);position:relative}
 .card label{font-size:13px;color:var(--muted)}
 .card input{display:block;width:100%;border:none;border-bottom:2.5px dashed var(--line);background:transparent;font-family:var(--disp);font-size:22px;padding:4px 0 6px;margin-top:2px}
+.bdrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:14px}
+.card .bdrow input{display:inline-block;width:auto;font-family:var(--body);font-size:16px;border:2px solid var(--line);border-radius:6px;padding:6px 8px;margin:0;background:var(--bg);color:var(--ink)}
+.bdrow .age{font-weight:900}
+.hb{margin-top:14px;background:var(--tape);color:#000;border:2.5px solid #000;border-radius:6px;padding:12px 14px;transform:rotate(-.6deg);box-shadow:4px 4px 0 #000}
+.hb big{display:block;font-family:var(--disp);font-size:20px;line-height:1.1;margin-bottom:6px}
+.hb p{margin:6px 0 0}
 .bike{margin-top:14px;border-top:2.5px dashed var(--line);padding-top:10px}
 .bike h3{margin:0 0 6px;font-size:14px;font-weight:900}
 .bike .g{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
@@ -291,6 +297,8 @@ ol.list li::before{counter-increment:w;content:counter(w);position:absolute;left
     <div class="lvlnow" id="lvlnow">Старт</div>
     <label for="name">Райдер <span id="rid" style="float:right;font-weight:700"></span></label>
     <input id="name" placeholder="Твоё имя" autocomplete="off" maxlength="40">
+    <div class="bdrow" id="bdrow"></div>
+    <div class="hb" id="hb" hidden></div>
     <div class="bike" id="bike" hidden></div>
     <div class="stats">
       <div class="stat"><b id="sDone">0</b><small>освоено</small></div>
@@ -895,7 +903,7 @@ function syncNow(){
     (S.lines[k]||[]).forEach(r=>{if(r&&r.s===3)pts+=(r.st||0)*LINE_W});
     const cur=lv.findIndex(x=>!x);return{key:k,name:d.name,level:cur<0?'Легенда пройдена':LEVELS[cur],done,total:tot,stickers:lv.filter(Boolean).length,points:pts}}).filter(x=>x.done>0||(S.p[x.key]&&Object.keys(S.p[x.key]).length));
   const log=wallet().log;
-  const body={id:S.id,name:S.name||'',bike:hasBike(S.bike)?S.bike:null,updated:new Date().toISOString(),balance:balance(),earned:earned(),spent:-log.filter(x=>x.pts<0).reduce((a,x)=>a+x.pts,0),bonus:log.filter(x=>x.pts>0).reduce((a,x)=>a+x.pts,0),disciplines:disc,log:log.slice(-50)};
+  const body={id:S.id,name:S.name||'',bday:ruBd(S.bday),bike:hasBike(S.bike)?S.bike:null,updated:new Date().toISOString(),balance:balance(),earned:earned(),spent:-log.filter(x=>x.pts<0).reduce((a,x)=>a+x.pts,0),bonus:log.filter(x=>x.pts>0).reduce((a,x)=>a+x.pts,0),disciplines:disc,log:log.slice(-50)};
   try{fetch(SYNC_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).catch(()=>{})}catch(e){}
 }
 const SERVER=/^https:\/\//.test(SYNC_URL);
@@ -907,7 +915,7 @@ async function api(body){const r=await fetch(SYNC_URL,{method:'POST',headers:{'C
 async function getState(id){const r=await fetch(SYNC_URL+'?a=state&id='+encodeURIComponent(id));return r.json()}
 function toLocal(st){const p={},ln={};const E=(st&&st.elements)||{};for(const disc in E)for(const key in E[disc]){const v=E[disc][key];
   if(key[0]==='L'){(ln[disc]=ln[disc]||[])[+key.slice(1)]={txt:'',s:3,st:v.st,d:v.d}}else (p[disc]=p[disc]||{})[key]={s:3,st:v.st,d:v.d}}return{p,ln}}
-function mergeServer(st){if(!st||!st.ok)return;if(st.bike&&hasBike(st.bike)&&!hasBike(S.bike))S.bike=Object.assign({},st.bike);S.srv={balance:st.balance,earned:st.earned,bonus:st.bonus,spent:st.spent,log:st.log||[]};
+function mergeServer(st){if(!st||!st.ok)return;if(st.bday&&!S.bday)S.bday=isoBd(st.bday);if(st.bike&&hasBike(st.bike)&&!hasBike(S.bike))S.bike=Object.assign({},st.bike);S.srv={balance:st.balance,earned:st.earned,bonus:st.bonus,spent:st.spent,log:st.log||[]};
   const E=st.elements||{};
   ORDER.forEach(disc=>{const p=S.p[disc]||(S.p[disc]={}),e=E[disc]||{};
     for(const k in p){if(p[k]&&p[k].s===3&&!e[k]){p[k].s=2;p[k].st=0;p[k].d=''}}
@@ -977,7 +985,7 @@ function renderCoach(){
   const c=$('#coach');
   if(coach){
     const who=target?`<div class="tgt">Отмечаете: <b>${esc(target.name||'без имени')}</b> · ${target.id} · ${target.st.balance} б.<button class="chipbtn" data-tgt-off>Мой дневник</button><button class="chipbtn" data-bind>📲 Привязать этот телефон</button></div>`:`<div class="tgt">Отмечаете: <b>этот телефон</b> · ${S.id}</div>`;
-    const list=ridersOpen?`<div class="rlist"><input id="rq" placeholder="Поиск по имени или ID" value="${esc(rq)}" autocomplete="off">${riders===null?'<p>Загружаю список…</p>':(()=>{const q=rq.trim().toLowerCase();const f=riders.filter(r=>!q||r.name.toLowerCase().includes(q)||r.id.toLowerCase().includes(q));return f.length?f.slice(0,60).map(r=>`<button class="ritem" data-rider="${r.id}"><b>${esc(r.name||'без имени')}</b><span>${r.id} · ${r.balance} б.</span></button>`).join(''):'<p>Никого не нашёл. Ученик появится в списке, когда откроет дневник с интернетом и впишет имя.</p>'})()}</div>`:'';
+    const list=ridersOpen?`<div class="rlist"><input id="rq" placeholder="Поиск по имени или ID" value="${esc(rq)}" autocomplete="off">${riders===null?'<p>Загружаю список…</p>':(()=>{const q=rq.trim().toLowerCase();const f=riders.filter(r=>!q||r.name.toLowerCase().includes(q)||r.id.toLowerCase().includes(q));f.forEach(r=>r._n=bdIn(isoBd(r.bday)));f.sort((a,b)=>(a._n!==null&&a._n<=7?a._n:99)-(b._n!==null&&b._n<=7?b._n:99));return f.length?f.slice(0,60).map(r=>`<button class="ritem" data-rider="${r.id}"><b>${r._n===0?'🎂 ':''}${esc(r.name||'без имени')}</b><span>${r._n===0?'ДР сегодня · ':r._n!==null&&r._n<=7?'🎂 через '+r._n+' дн. · ':''}${r.id} · ${r.balance} б.</span></button>`).join(''):'<p>Никого не нашёл. Ученик появится в списке, когда откроет дневник с интернетом и впишет имя.</p>'})()}</div>`:'';
     c.innerHTML=`<div class="coach-on"><b>Режим тренера</b> — «Освоил», звёзды, бонусы и призы сохраняются в таблицу.${who}<div class="row"><button class="chipbtn" data-coachtab>📋 Разминки, сила, секундомер, план</button><button class="chipbtn" data-riders>👥 Ученики</button>${BONUS.map((b,i)=>`<button class="chipbtn" data-bonus="${i}">+${b[1]} ${esc(b[0].toLowerCase())}</button>`).join('')}<button class="chipbtn" data-coach-out>Выйти</button></div>${list}</div>`}
   else if(pinOpen){c.innerHTML=`<label for="pin">Код тренера</label><div class="row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"><button class="chipbtn" data-pin-go>Войти</button><button class="chipbtn" data-pin-x>Отмена</button>${pinErr?`<span class="err">${pinErr}</span>`:''}</div>`;setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0)}
   else c.innerHTML=`<button class="chipbtn" data-pin-open>🔒 Тренер</button>`;
@@ -1168,6 +1176,25 @@ function bikeHTML(){const b=bikeOf();
   `<label>Марка<input data-bike="brand" list="bikeBr" maxlength="30" autocomplete="off" value="${esc(b.brand||'')}" placeholder="KTM"></label>`+
   `<label>Модель<input data-bike="model" maxlength="40" autocomplete="off" value="${esc(b.model||'')}" placeholder="65 SX"></label>`+
   `</div><datalist id="bikeBr">${BIKE_BR.map(x=>`<option value="${x}">`).join('')}</datalist>`}
+/* ===== День рождения: дата хранится как гггг-мм-дд ===== */
+const BD_GIFT=20;
+const BD_WISH=['Пусть каждый новый трюк получается с первой попытки, а падения будут мягкими!','Желаем смелости, крепких коленок и самых высоких прыжков в этом году!','Пусть этот год принесёт новые уровни, наклейки и победы на соревнованиях!','Катайся смело, учись с удовольствием и вдохновляй друзей!','Пусть в этом году сбудется твой самый крутой трюк!'];
+const bdOf=()=>target?isoBd((target.st&&target.st.bday)||''):(S.bday||'');
+const isoBd=v=>{const m=/^(\d{2})\.(\d{2})\.(\d{4})$/.exec(v||'');return m?m[3]+'-'+m[2]+'-'+m[1]:(/^\d{4}-\d{2}-\d{2}$/.test(v||'')?v:'')};
+const ruBd=v=>{const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(v||'');return m?m[3]+'.'+m[2]+'.'+m[1]:''};
+function ageOf(iso,now){now=now||new Date();const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');if(!m)return null;let a=now.getFullYear()-m[1];if(now.getMonth()+1<+m[2]||(now.getMonth()+1==+m[2]&&now.getDate()<+m[3]))a--;return a>=0&&a<100?a:null}
+function bdIn(iso,now){now=now||new Date();const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(iso||'');if(!m)return null;const t=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  for(const y of [t.getFullYear(),t.getFullYear()+1]){let mo=+m[2]-1,d=+m[3];if(mo===1&&d===29&&new Date(y,1,29).getMonth()!==1)d=28;const b=new Date(y,mo,d);const n=Math.round((b-t)/864e5);if(n>=0)return n}return null}
+const yrs=n=>{const a=n%10,b=n%100;return n+' '+(a===1&&b!==11?'год':a>=2&&a<=4&&(b<12||b>14)?'года':'лет')};
+const bdGiven=()=>logList().some(x=>/день рождения/i.test(x.txt||'')&&String(x.d||'').slice(-4)===String(new Date().getFullYear()));
+function renderBd(){const bd=bdOf(),age=ageOf(bd),r=$('#bdrow'),h=$('#hb');
+  if(target)r.innerHTML=`Дата рождения: <b>${bd?ruBd(bd):'не указана'}</b>${age!==null?` <span class="age">· ${yrs(age)}</span>`:''}`;
+  else if(!r.contains(document.activeElement))r.innerHTML=`<label for="bday">Дата рождения</label><input id="bday" type="date" min="1950-01-01" max="${new Date().toISOString().slice(0,10)}" value="${bd}">${age!==null?`<span class="age">${yrs(age)}</span>`:''}`;
+  const n=bdIn(bd),nm=(target?target.name:S.name)||'';
+  if(n===0){const w=BD_WISH[(new Date().getFullYear()+(target?target.id:S.id).charCodeAt(2))%BD_WISH.length];
+    h.innerHTML=`<big>🎂 С днём рождения${nm?', '+esc(nm):''}!</big>Сегодня тебе ${yrs(age)}! ${w}<p>🎁 <b>Подарок: +${BD_GIFT} баллов.</b> ${bdGiven()?'Уже получен — поздравляем!':'Покажи этот экран тренеру, и он начислит подарок.'}</p>`+(coach&&!bdGiven()?`<p><button class="chipbtn" data-bdgift>🎁 Начислить +${BD_GIFT} за день рождения</button></p>`:'');h.hidden=false}
+  else if(coach&&n!==null&&n<=3){h.innerHTML=`🎂 День рождения через ${n} дн. (${ruBd(bd).slice(0,5)}) — ${yrs(age+1)}.`;h.hidden=false}
+  else h.hidden=true}
 function render(){
   const d=D[S.disc];
   if(tab==='coach'&&!coach){tab='tricks';tmPause()}
@@ -1175,6 +1202,7 @@ function render(){
   document.documentElement.style.setProperty('--acc',d.c);
   $('#heroDisc').textContent=d.name.toLowerCase();$('#heroVerb').textContent=T().hero;$('#tabTricks').textContent=T().tab;
   $('#disc').innerHTML=ORDER.map(k=>`<button class="chip" style="--c:${D[k].c};--r:${D[k].r}" data-k="${k}" aria-pressed="${k===S.disc}">${D[k].name}</button>`).join('');
+  renderBd();
   const bk=$('#bike'),bkOn=S.disc==='moto';bk.hidden=!bkOn;if(bkOn&&!bk.contains(document.activeElement))bk.innerHTML=bikeHTML();
   $('#name').value=target?(target.name||''):(S.name||'');$('#name').readOnly=!!target;$('#rid').textContent='ID '+(target?target.id:S.id);
   const st=stats(),stk=st.lv.filter(Boolean).length;
@@ -1235,6 +1263,7 @@ document.addEventListener('click',e=>{
     const old=S.id;S.id=target.id;S.name=target.name||S.name;S.p={};S.lines={};S.srv=null;const st=target.st;target=null;mergeServer(st);save();setCoach(false);render();
     toast('Телефон привязан к '+S.id+(old!==S.id?' (старый ID '+old+' больше не используется)':''));return}
   const rd=e.target.closest('[data-rider]');if(rd){pickRider(rd.dataset.rider);return}
+  if(e.target.closest('[data-bdgift]')){if(bdGiven()){toast('Подарок уже начислен');return}award({a:'bonus',title:'День рождения',pts:BD_GIFT}).then(r=>r&&toast('🎁 +'+BD_GIFT+' б. — с днём рождения!'));return}
   const bo=e.target.closest('[data-bonus]');if(bo){const b=BONUS[+bo.dataset.bonus];award({a:'bonus',title:b[0],pts:b[1]}).then(r=>r&&toast('+'+b[1]+' б.: '+b[0].toLowerCase()));return}
   const pr=e.target.closest('[data-prize]');if(pr){const p=PRIZES[+pr.dataset.prize];if(coach&&balance()>=p[1]&&confirm('Выдать приз «'+p[0]+'» за '+p[1]+' баллов?'))award({a:'prize',title:p[0],cost:p[1]}).then(r=>r&&toast('Приз выдан: '+p[0]));return}
   const sb=e.target.closest('[data-star]');if(sb){if(!coach){toast('Звёзды ставит только тренер');return}const [kind,id]=sb.dataset.sk.split(':'),r=kind==='l'?lines()[+id]:prog()[id];const n=+sb.dataset.star;awardEl(kind==='l'?'L'+id:id,r.st===n?n-1:n,false);return}
@@ -1253,7 +1282,8 @@ async function tryPin(){const p=$('#pin');if(!p)return;const v=p.value.trim();if
   pinErr='Проверяю…';try{const r=await api({a:'login',pin:v});if(r&&r.ok){pinOpen=false;pinErr='';setCoach(true,v);render();toast('Режим тренера на 20 минут')}else pinErr='Неверный код';}
   catch(e){pinErr='Нужен интернет'}render()}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pin')tryPin()});
-document.addEventListener('input',e=>{if(e.target.id==='rq'){rq=e.target.value;const pos=e.target.selectionStart;render();const q=$('#rq');if(q){q.focus();q.setSelectionRange(pos,pos)}return}const bf=e.target.closest('[data-bike]');if(bf){if(target)return;S.bike=S.bike||{};S.bike[bf.dataset.bike]=bf.value.trim();save();return}const x=e.target.closest('[data-ltxt]');if(x&&target)return;if(x){lines()[+x.dataset.ltxt].txt=x.value;save()}});
+document.addEventListener('change',e=>{if(e.target.id==='bday'&&!target){S.bday=/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)?e.target.value:'';save();e.target.blur();render()}});
+document.addEventListener('input',e=>{if(e.target.id==='rq'){rq=e.target.value;const pos=e.target.selectionStart;render();const q=$('#rq');if(q){q.focus();q.setSelectionRange(pos,pos)}return}if(e.target.id==='bday'){if(target)return;S.bday=/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)?e.target.value:'';save();return}const bf=e.target.closest('[data-bike]');if(bf){if(target)return;S.bike=S.bike||{};S.bike[bf.dataset.bike]=bf.value.trim();save();return}const x=e.target.closest('[data-ltxt]');if(x&&target)return;if(x){lines()[+x.dataset.ltxt].txt=x.value;save()}});
 $('#reset').onclick=()=>{if(!coach){toast('Сбросить прогресс может только тренер');return}if(target){toast('Сброс работает только на телефоне ученика');return}if(confirm('Сбросить прогресс по дисциплине «'+D[S.disc].name+'»?')){S.p[S.disc]={};S.lines[S.disc]=[];save();render()}};
 $('#theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
 $('#brands').innerHTML=logosHTML();
