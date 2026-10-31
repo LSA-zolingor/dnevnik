@@ -60,6 +60,22 @@ img{max-width:100%}
 .bdrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:14px}
 .card .bdrow input{display:inline-block;width:auto;font-family:var(--body);font-size:16px;border:2px solid var(--line);border-radius:6px;padding:6px 8px;margin:0;background:var(--bg);color:var(--ink)}
 .bdrow .age{font-weight:900}
+.who{display:flex;gap:12px;align-items:flex-end}
+.whon{flex:1;min-width:0}
+.av{flex:none;width:64px;height:64px;border-radius:50%;border:2.5px solid var(--line);background:var(--acc);display:grid;place-items:center;font-size:36px;line-height:1;cursor:pointer;padding:0;overflow:hidden;position:relative;box-shadow:3px 3px 0 var(--line)}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+.av .plus{position:absolute;right:-2px;bottom:-2px;background:var(--tape);color:#000;border:2px solid #000;border-radius:50%;width:22px;height:22px;font-size:14px;font-weight:900;display:grid;place-items:center}
+.av[disabled]{cursor:default}
+.avpick{margin-top:12px;border:2.5px dashed var(--line);border-radius:6px;padding:10px}
+.avpick h3{margin:4px 0 8px;font-size:14px;font-weight:900}
+.avgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.avgrid button{aspect-ratio:1;border-radius:50%;border:2px solid var(--line);background:var(--bg);font-size:26px;line-height:1;padding:0;cursor:pointer}
+.avgrid button[aria-pressed="true"]{outline:3px solid var(--acc);outline-offset:2px}
+.avcol{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.avcol button{width:32px;height:32px;border-radius:50%;border:2px solid var(--line);cursor:pointer;padding:0}
+.avcol button[aria-pressed="true"]{outline:3px solid var(--ink);outline-offset:2px}
+.avpick .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.avpick .note{font-size:12.5px;color:var(--muted);margin:8px 0 0}
 .consent{display:flex;gap:10px;align-items:flex-start;margin-top:12px;font-size:13px;line-height:1.35}
 .card .consent input{display:block;flex:none;width:22px;height:22px;margin:1px 0 0;padding:0;accent-color:var(--acc)}
 .consent a{color:inherit;font-weight:700}
@@ -299,8 +315,12 @@ ol.list li::before{counter-increment:w;content:counter(w);position:absolute;left
 
   <section class="card">
     <div class="lvlnow" id="lvlnow">Старт</div>
+    <div class="who"><button class="av" id="av" aria-label="Выбрать аватар"></button><div class="whon">
     <label for="name">Райдер <span id="rid" style="float:right;font-weight:700"></span></label>
     <input id="name" placeholder="Твоё имя" autocomplete="off" maxlength="40">
+    </div></div>
+    <div class="avpick" id="avpick" hidden></div>
+    <input type="file" id="avfile" accept="image/*" style="display:none">
     <div class="bdrow" id="bdrow"></div>
     <div id="consent"></div>
     <div class="hb" id="hb" hidden></div>
@@ -1182,6 +1202,23 @@ function bikeHTML(){const b=bikeOf();
   `<label>Марка<input data-bike="brand" list="bikeBr" maxlength="30" autocomplete="off" value="${esc(b.brand||'')}" placeholder="KTM"></label>`+
   `<label>Модель<input data-bike="model" maxlength="40" autocomplete="off" value="${esc(b.model||'')}" placeholder="65 SX"></label>`+
   `</div><datalist id="bikeBr">${BIKE_BR.map(x=>`<option value="${x}">`).join('')}</datalist>`}
+/* ===== Аватар: персонаж или своё фото (фото хранится только на этом телефоне) ===== */
+const AV_E=['🦊','🐯','🐼','🐸','🦁','🐵','🐺','🐻','🐧','🦄','🐲','🦖','🤖','👽','🦸','🥷','🧑‍🚀','😎','🔥','⚡','🚀','🛹','🛴','🏍️'];
+const AV_C=['#1EC8C8','#E5262B','#FFE14D','#8C52FF','#2ECC71','#FF8A00','#3B82F6','#FF5FA2'];
+let avOpen=false;
+function avHTML(){const a=target?null:S.av;
+  if(a&&a.ph)return `<img src="${a.ph}" alt="">`;
+  if(a&&a.e)return `<span aria-hidden="true">${a.e}</span>`;
+  const n=((target?target.name:S.name)||'').trim();return `<span aria-hidden="true" style="font-family:var(--disp);font-size:28px">${n?esc(n[0].toUpperCase()):'🙂'}</span>`+(target?'':'<span class="plus">+</span>')}
+function renderAv(){const b=$('#av'),a=target?null:S.av;b.innerHTML=avHTML();b.style.background=a&&a.c?a.c:'';b.disabled=!!target;
+  const pk=$('#avpick');pk.hidden=!avOpen||!!target;if(pk.hidden)return;const cur=S.av||{};
+  pk.innerHTML=`<h3>Выбери персонажа</h3><div class="avgrid">${AV_E.map(e=>`<button data-ave="${e}" aria-pressed="${!cur.ph&&cur.e===e}">${e}</button>`).join('')}</div>`+
+  `<h3 style="margin-top:12px">Цвет фона</h3><div class="avcol">${AV_C.map(c=>`<button data-avc="${c}" style="background:${c}" aria-pressed="${cur.c===c}" aria-label="Цвет"></button>`).join('')}</div>`+
+  `<div class="row"><button class="chipbtn" data-avph>📷 Своё фото</button>${cur.ph?'<button class="chipbtn" data-avdel>Убрать фото</button>':''}<button class="chipbtn" data-avx>Готово</button></div>`+
+  `<p class="note">Фото остаётся только на этом телефоне и никуда не отправляется.</p>`}
+function avPhoto(f){if(!f)return;const fr=new FileReader();fr.onload=()=>{const im=new Image();im.onload=()=>{const z=192,cv=document.createElement('canvas');cv.width=cv.height=z;const k=Math.min(im.width,im.height);
+  cv.getContext('2d').drawImage(im,(im.width-k)/2,(im.height-k)/2,k,k,0,0,z,z);S.av=Object.assign({},S.av,{ph:cv.toDataURL('image/jpeg',.82)});save();avOpen=false;render();toast('Фото сохранено на этом телефоне')};
+  im.onerror=()=>toast('Не получилось открыть фото');im.src=fr.result};fr.readAsDataURL(f)}
 /* ===== Согласие родителя на обработку персональных данных (152-ФЗ) ===== */
 const CONSENT_V='1';
 const hasConsent=()=>!!(S.consent&&S.consent.v===CONSENT_V);
@@ -1200,7 +1237,7 @@ function bdIn(iso,now){now=now||new Date();const m=/^(\d{4})-(\d{2})-(\d{2})$/.e
   for(const y of [t.getFullYear(),t.getFullYear()+1]){let mo=+m[2]-1,d=+m[3];if(mo===1&&d===29&&new Date(y,1,29).getMonth()!==1)d=28;const b=new Date(y,mo,d);const n=Math.round((b-t)/864e5);if(n>=0)return n}return null}
 const yrs=n=>{const a=n%10,b=n%100;return n+' '+(a===1&&b!==11?'год':a>=2&&a<=4&&(b<12||b>14)?'года':'лет')};
 const bdGiven=()=>logList().some(x=>/день рождения/i.test(x.txt||'')&&String(x.d||'').slice(-4)===String(new Date().getFullYear()));
-function renderBd(){renderConsent();const bd=bdOf(),age=ageOf(bd),r=$('#bdrow'),h=$('#hb');
+function renderBd(){renderConsent();renderAv();const bd=bdOf(),age=ageOf(bd),r=$('#bdrow'),h=$('#hb');
   if(target)r.innerHTML=`Дата рождения: <b>${bd?ruBd(bd):'не указана'}</b>${age!==null?` <span class="age">· ${yrs(age)}</span>`:''}`;
   else if(!r.contains(document.activeElement))r.innerHTML=`<label for="bday">Дата рождения</label><input id="bday" type="date" min="1950-01-01" max="${new Date().toISOString().slice(0,10)}" value="${bd}">${age!==null?`<span class="age">${yrs(age)}</span>`:''}`;
   const n=bdIn(bd),nm=(target?target.name:S.name)||'';
@@ -1276,6 +1313,12 @@ document.addEventListener('click',e=>{
     const old=S.id;S.id=target.id;S.name=target.name||S.name;S.p={};S.lines={};S.srv=null;const st=target.st;target=null;mergeServer(st);save();setCoach(false);render();
     toast('Телефон привязан к '+S.id+(old!==S.id?' (старый ID '+old+' больше не используется)':''));return}
   const rd=e.target.closest('[data-rider]');if(rd){pickRider(rd.dataset.rider);return}
+  if(e.target.closest('#av')){if(target)return;avOpen=!avOpen;render();return}
+  const ae=e.target.closest('[data-ave]');if(ae){S.av={e:ae.dataset.ave,c:(S.av&&S.av.c)||AV_C[0]};save();render();return}
+  const ac=e.target.closest('[data-avc]');if(ac){S.av=Object.assign({e:AV_E[0]},S.av,{c:ac.dataset.avc});save();render();return}
+  if(e.target.closest('[data-avph]')){$('#avfile').click();return}
+  if(e.target.closest('[data-avdel]')){if(S.av)delete S.av.ph;save();render();return}
+  if(e.target.closest('[data-avx]')){avOpen=false;render();return}
   if(e.target.closest('[data-bdgift]')){if(bdGiven()){toast('Подарок уже начислен');return}award({a:'bonus',title:'День рождения',pts:BD_GIFT}).then(r=>r&&toast('🎁 +'+BD_GIFT+' б. — с днём рождения!'));return}
   const bo=e.target.closest('[data-bonus]');if(bo){const b=BONUS[+bo.dataset.bonus];award({a:'bonus',title:b[0],pts:b[1]}).then(r=>r&&toast('+'+b[1]+' б.: '+b[0].toLowerCase()));return}
   const pr=e.target.closest('[data-prize]');if(pr){const p=PRIZES[+pr.dataset.prize];if(coach&&balance()>=p[1]&&confirm('Выдать приз «'+p[0]+'» за '+p[1]+' баллов?'))award({a:'prize',title:p[0],cost:p[1]}).then(r=>r&&toast('Приз выдан: '+p[0]));return}
@@ -1295,7 +1338,7 @@ async function tryPin(){const p=$('#pin');if(!p)return;const v=p.value.trim();if
   pinErr='Проверяю…';try{const r=await api({a:'login',pin:v});if(r&&r.ok){pinOpen=false;pinErr='';setCoach(true,v);render();toast('Режим тренера на 20 минут')}else pinErr='Неверный код';}
   catch(e){pinErr='Нужен интернет'}render()}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pin')tryPin()});
-document.addEventListener('change',e=>{if(e.target.id==='cons'&&!target){if(e.target.checked)S.consent={v:CONSENT_V,at:new Date().toISOString()};else{if(!confirm('Отозвать согласие? Имя, дата рождения и мотоцикл будут удалены из таблицы тренера. На этом телефоне всё останется.')){e.target.checked=true;return}S.consent=null}save();clearTimeout(syncT);syncNow();render();return}if(e.target.id==='bday'&&!target){S.bday=/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)?e.target.value:'';save();e.target.blur();render()}});
+document.addEventListener('change',e=>{if(e.target.id==='avfile'){avPhoto(e.target.files[0]);e.target.value='';return}if(e.target.id==='cons'&&!target){if(e.target.checked)S.consent={v:CONSENT_V,at:new Date().toISOString()};else{if(!confirm('Отозвать согласие? Имя, дата рождения и мотоцикл будут удалены из таблицы тренера. На этом телефоне всё останется.')){e.target.checked=true;return}S.consent=null}save();clearTimeout(syncT);syncNow();render();return}if(e.target.id==='bday'&&!target){S.bday=/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)?e.target.value:'';save();e.target.blur();render()}});
 document.addEventListener('input',e=>{if(e.target.id==='rq'){rq=e.target.value;const pos=e.target.selectionStart;render();const q=$('#rq');if(q){q.focus();q.setSelectionRange(pos,pos)}return}if(e.target.id==='bday'){if(target)return;S.bday=/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)?e.target.value:'';save();return}const bf=e.target.closest('[data-bike]');if(bf){if(target)return;S.bike=S.bike||{};S.bike[bf.dataset.bike]=bf.value.trim();save();return}const x=e.target.closest('[data-ltxt]');if(x&&target)return;if(x){lines()[+x.dataset.ltxt].txt=x.value;save()}});
 $('#reset').onclick=()=>{if(!coach){toast('Сбросить прогресс может только тренер');return}if(target){toast('Сброс работает только на телефоне ученика');return}if(confirm('Сбросить прогресс по дисциплине «'+D[S.disc].name+'»?')){S.p[S.disc]={};S.lines[S.disc]=[];save();render()}};
 $('#theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
