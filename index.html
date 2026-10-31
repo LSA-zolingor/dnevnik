@@ -60,6 +60,10 @@ img{max-width:100%}
 .bdrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;font-size:14px}
 .card .bdrow input{display:inline-block;width:auto;font-family:var(--body);font-size:16px;border:2px solid var(--line);border-radius:6px;padding:6px 8px;margin:0;background:var(--bg);color:var(--ink)}
 .bdrow .age{font-weight:900}
+.consent{display:flex;gap:10px;align-items:flex-start;margin-top:12px;font-size:13px;line-height:1.35}
+.card .consent input{display:block;flex:none;width:22px;height:22px;margin:1px 0 0;padding:0;accent-color:var(--acc)}
+.consent a{color:inherit;font-weight:700}
+.consent.no{background:color-mix(in srgb,var(--tape) 45%,transparent);border-radius:6px;padding:8px}
 .hb{margin-top:14px;background:var(--tape);color:#000;border:2.5px solid #000;border-radius:6px;padding:12px 14px;transform:rotate(-.6deg);box-shadow:4px 4px 0 #000}
 .hb big{display:block;font-family:var(--disp);font-size:20px;line-height:1.1;margin-bottom:6px}
 .hb p{margin:6px 0 0}
@@ -298,6 +302,7 @@ ol.list li::before{counter-increment:w;content:counter(w);position:absolute;left
     <label for="name">Райдер <span id="rid" style="float:right;font-weight:700"></span></label>
     <input id="name" placeholder="Твоё имя" autocomplete="off" maxlength="40">
     <div class="bdrow" id="bdrow"></div>
+    <div id="consent"></div>
     <div class="hb" id="hb" hidden></div>
     <div class="bike" id="bike" hidden></div>
     <div class="stats">
@@ -329,7 +334,7 @@ ol.list li::before{counter-increment:w;content:counter(w);position:absolute;left
   </div>
   <div class="row" id="installRow" hidden><button class="btn" id="installBtn">📲 Установить на телефон</button></div>
   <p class="note" id="iosHint" hidden>На iPhone: кнопка «Поделиться» внизу Safari → «На экран "Домой"».</p>
-  <p class="foot">Прогресс хранится на этом телефоне. Печать тренера ставится в бумажном буклете.</p>
+  <p class="foot">Прогресс хранится на этом телефоне. Печать тренера ставится в бумажном буклете. <a href="privacy.html" target="_blank" rel="noopener">Политика обработки персональных данных</a> · <a href="consent.html" target="_blank" rel="noopener">Согласие</a></p>
 </div>
 
 <div class="toast" id="toast" hidden></div>
@@ -903,7 +908,8 @@ function syncNow(){
     (S.lines[k]||[]).forEach(r=>{if(r&&r.s===3)pts+=(r.st||0)*LINE_W});
     const cur=lv.findIndex(x=>!x);return{key:k,name:d.name,level:cur<0?'Легенда пройдена':LEVELS[cur],done,total:tot,stickers:lv.filter(Boolean).length,points:pts}}).filter(x=>x.done>0||(S.p[x.key]&&Object.keys(S.p[x.key]).length));
   const log=wallet().log;
-  const body={id:S.id,name:S.name||'',bday:ruBd(S.bday),bike:hasBike(S.bike)?S.bike:null,updated:new Date().toISOString(),balance:balance(),earned:earned(),spent:-log.filter(x=>x.pts<0).reduce((a,x)=>a+x.pts,0),bonus:log.filter(x=>x.pts>0).reduce((a,x)=>a+x.pts,0),disciplines:disc,log:log.slice(-50)};
+  const ok=hasConsent();
+  const body={id:S.id,name:ok?(S.name||''):'',bday:ok?ruBd(S.bday):'',bike:ok&&hasBike(S.bike)?S.bike:null,consent:ok?{v:S.consent.v,at:S.consent.at}:false,updated:new Date().toISOString(),balance:balance(),earned:earned(),spent:-log.filter(x=>x.pts<0).reduce((a,x)=>a+x.pts,0),bonus:log.filter(x=>x.pts>0).reduce((a,x)=>a+x.pts,0),disciplines:disc,log:log.slice(-50)};
   try{fetch(SYNC_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).catch(()=>{})}catch(e){}
 }
 const SERVER=/^https:\/\//.test(SYNC_URL);
@@ -915,7 +921,7 @@ async function api(body){const r=await fetch(SYNC_URL,{method:'POST',headers:{'C
 async function getState(id){const r=await fetch(SYNC_URL+'?a=state&id='+encodeURIComponent(id));return r.json()}
 function toLocal(st){const p={},ln={};const E=(st&&st.elements)||{};for(const disc in E)for(const key in E[disc]){const v=E[disc][key];
   if(key[0]==='L'){(ln[disc]=ln[disc]||[])[+key.slice(1)]={txt:'',s:3,st:v.st,d:v.d}}else (p[disc]=p[disc]||{})[key]={s:3,st:v.st,d:v.d}}return{p,ln}}
-function mergeServer(st){if(!st||!st.ok)return;if(st.bday&&!S.bday)S.bday=isoBd(st.bday);if(st.bike&&hasBike(st.bike)&&!hasBike(S.bike))S.bike=Object.assign({},st.bike);S.srv={balance:st.balance,earned:st.earned,bonus:st.bonus,spent:st.spent,log:st.log||[]};
+function mergeServer(st){if(!st||!st.ok)return;if(S.consent===undefined&&st.consentV===CONSENT_V&&st.consentAt)S.consent={v:st.consentV,at:st.consentAt};if(st.bday&&!S.bday)S.bday=isoBd(st.bday);if(st.bike&&hasBike(st.bike)&&!hasBike(S.bike))S.bike=Object.assign({},st.bike);S.srv={balance:st.balance,earned:st.earned,bonus:st.bonus,spent:st.spent,log:st.log||[]};
   const E=st.elements||{};
   ORDER.forEach(disc=>{const p=S.p[disc]||(S.p[disc]={}),e=E[disc]||{};
     for(const k in p){if(p[k]&&p[k].s===3&&!e[k]){p[k].s=2;p[k].st=0;p[k].d=''}}
@@ -928,7 +934,7 @@ async function award(body){
   if(!coach){toast('Отмечать может только тренер');return}
   if(!SERVER){toast('Онлайн-таблица не подключена');return}
   if(busy)return;busy=true;document.body.style.cursor='progress';
-  const who=target||{id:S.id,name:S.name||''};
+  const who=target||{id:S.id,name:hasConsent()?(S.name||''):''};
   try{const st=await api(Object.assign({pin:coachPin,id:who.id,name:who.name},body));
     if(st&&st.ok){if(target)setTarget(target,st);else{mergeServer(st);render()}return st}
     toast(st&&st.err==='pin'?'Код тренера не принят — войдите заново':st&&st.err==='balance'?'Не хватает баллов':'Не сохранилось, попробуйте ещё раз');
@@ -1176,6 +1182,13 @@ function bikeHTML(){const b=bikeOf();
   `<label>Марка<input data-bike="brand" list="bikeBr" maxlength="30" autocomplete="off" value="${esc(b.brand||'')}" placeholder="KTM"></label>`+
   `<label>Модель<input data-bike="model" maxlength="40" autocomplete="off" value="${esc(b.model||'')}" placeholder="65 SX"></label>`+
   `</div><datalist id="bikeBr">${BIKE_BR.map(x=>`<option value="${x}">`).join('')}</datalist>`}
+/* ===== Согласие родителя на обработку персональных данных (152-ФЗ) ===== */
+const CONSENT_V='1';
+const hasConsent=()=>!!(S.consent&&S.consent.v===CONSENT_V);
+function renderConsent(){const c=$('#consent');
+  if(target){const v=target.st&&target.st.consent;c.innerHTML=`<div class="consent">Согласие родителя: <b>${v?esc(v):'нет'}</b></div>`;return}
+  const ok=hasConsent();
+  c.innerHTML=`<label class="consent${ok?'':' no'}"><input type="checkbox" id="cons"${ok?' checked':''}><span>Я родитель (законный представитель) ребёнка и даю <a href="consent.html" target="_blank" rel="noopener">согласие на обработку его персональных данных</a>: имя, дата рождения, сведения о мотоцикле и прогрессе.${ok?` Дано ${esc(new Date(S.consent.at).toLocaleDateString('ru-RU'))}.`:' Без согласия данные остаются только на этом телефоне, а тренер не видит ученика в списке.'}</span></label>`}
 /* ===== День рождения: дата хранится как гггг-мм-дд ===== */
 const BD_GIFT=20;
 const BD_WISH=['Пусть каждый новый трюк получается с первой попытки, а падения будут мягкими!','Желаем смелости, крепких коленок и самых высоких прыжков в этом году!','Пусть этот год принесёт новые уровни, наклейки и победы на соревнованиях!','Катайся смело, учись с удовольствием и вдохновляй друзей!','Пусть в этом году сбудется твой самый крутой трюк!'];
@@ -1187,7 +1200,7 @@ function bdIn(iso,now){now=now||new Date();const m=/^(\d{4})-(\d{2})-(\d{2})$/.e
   for(const y of [t.getFullYear(),t.getFullYear()+1]){let mo=+m[2]-1,d=+m[3];if(mo===1&&d===29&&new Date(y,1,29).getMonth()!==1)d=28;const b=new Date(y,mo,d);const n=Math.round((b-t)/864e5);if(n>=0)return n}return null}
 const yrs=n=>{const a=n%10,b=n%100;return n+' '+(a===1&&b!==11?'год':a>=2&&a<=4&&(b<12||b>14)?'года':'лет')};
 const bdGiven=()=>logList().some(x=>/день рождения/i.test(x.txt||'')&&String(x.d||'').slice(-4)===String(new Date().getFullYear()));
-function renderBd(){const bd=bdOf(),age=ageOf(bd),r=$('#bdrow'),h=$('#hb');
+function renderBd(){renderConsent();const bd=bdOf(),age=ageOf(bd),r=$('#bdrow'),h=$('#hb');
   if(target)r.innerHTML=`Дата рождения: <b>${bd?ruBd(bd):'не указана'}</b>${age!==null?` <span class="age">· ${yrs(age)}</span>`:''}`;
   else if(!r.contains(document.activeElement))r.innerHTML=`<label for="bday">Дата рождения</label><input id="bday" type="date" min="1950-01-01" max="${new Date().toISOString().slice(0,10)}" value="${bd}">${age!==null?`<span class="age">${yrs(age)}</span>`:''}`;
   const n=bdIn(bd),nm=(target?target.name:S.name)||'';
@@ -1282,7 +1295,7 @@ async function tryPin(){const p=$('#pin');if(!p)return;const v=p.value.trim();if
   pinErr='Проверяю…';try{const r=await api({a:'login',pin:v});if(r&&r.ok){pinOpen=false;pinErr='';setCoach(true,v);render();toast('Режим тренера на 20 минут')}else pinErr='Неверный код';}
   catch(e){pinErr='Нужен интернет'}render()}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pin')tryPin()});
-document.addEventListener('change',e=>{if(e.target.id==='bday'&&!target){S.bday=/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)?e.target.value:'';save();e.target.blur();render()}});
+document.addEventListener('change',e=>{if(e.target.id==='cons'&&!target){if(e.target.checked)S.consent={v:CONSENT_V,at:new Date().toISOString()};else{if(!confirm('Отозвать согласие? Имя, дата рождения и мотоцикл будут удалены из таблицы тренера. На этом телефоне всё останется.')){e.target.checked=true;return}S.consent=null}save();clearTimeout(syncT);syncNow();render();return}if(e.target.id==='bday'&&!target){S.bday=/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)?e.target.value:'';save();e.target.blur();render()}});
 document.addEventListener('input',e=>{if(e.target.id==='rq'){rq=e.target.value;const pos=e.target.selectionStart;render();const q=$('#rq');if(q){q.focus();q.setSelectionRange(pos,pos)}return}if(e.target.id==='bday'){if(target)return;S.bday=/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)?e.target.value:'';save();return}const bf=e.target.closest('[data-bike]');if(bf){if(target)return;S.bike=S.bike||{};S.bike[bf.dataset.bike]=bf.value.trim();save();return}const x=e.target.closest('[data-ltxt]');if(x&&target)return;if(x){lines()[+x.dataset.ltxt].txt=x.value;save()}});
 $('#reset').onclick=()=>{if(!coach){toast('Сбросить прогресс может только тренер');return}if(target){toast('Сброс работает только на телефоне ученика');return}if(confirm('Сбросить прогресс по дисциплине «'+D[S.disc].name+'»?')){S.p[S.disc]={};S.lines[S.disc]=[];save();render()}};
 $('#theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};

@@ -1,5 +1,5 @@
 /* Дневник райдера — офлайн-кэш. Меняйте VERSION при каждом обновлении. */
-const VERSION = 'dnevnik-v12';
+const VERSION = 'dnevnik-v13';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
