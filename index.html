@@ -66,7 +66,7 @@ img{max-width:100%}
 .next{margin-top:12px;font-size:14px}
 .next b{font-weight:700}
 
-.tabs{display:flex;overflow-x:auto;scrollbar-width:none;margin:26px 0 14px;border:2.5px solid var(--line);border-radius:6px;overflow:hidden;background:var(--paper);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.tabs{display:flex;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;margin:26px 0 14px;border:2.5px solid var(--line);border-radius:6px;background:var(--paper);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
 .tab{flex:1 0 auto;border:0;background:transparent;padding:11px 10px;font-weight:700;font-size:13.5px;cursor:pointer;border-right:2.5px solid var(--line)}
 .tab:last-child{border-right:0}
 .tab[aria-selected="true"]{background:var(--ink);color:var(--bg)}
@@ -137,6 +137,31 @@ ol.list li::before{counter-increment:w;content:counter(w);position:absolute;left
 .ritem{display:flex;justify-content:space-between;gap:10px;width:100%;text-align:left;background:var(--bg);color:var(--ink);border:0;border-radius:6px;padding:10px 12px;margin-bottom:6px;font:inherit;cursor:pointer}
 .ritem span{color:var(--muted);font-size:13px}
 .coach-on .chipbtn{background:var(--bg);color:var(--ink)}
+.tabs::-webkit-scrollbar{display:none}
+.wu{background:var(--paper);border:2.5px solid var(--line);border-radius:6px;padding:14px;margin:0 0 12px}
+.wu.fit{box-shadow:5px 5px 0 var(--acc)}
+.wu-h{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.wu-h h3{font-family:var(--disp);font-weight:400;font-size:18px;margin:0}
+.wu .meta{font-size:14px;color:var(--muted);margin:4px 0 6px}
+.tag{display:inline-block;background:var(--acc);color:#000;border:2px solid #000;border-radius:999px;padding:0 8px;font-size:12px;font-weight:700}
+.steps li b{display:flex;justify-content:space-between;gap:10px}
+.steps li em{font-style:normal;font-weight:700;color:var(--muted);white-space:nowrap}
+.lvl-nav.wrapn{flex-wrap:wrap}
+.steps li.cur{border-color:var(--acc);box-shadow:inset 6px 0 0 var(--acc)}
+.steps li.past{opacity:.5}
+.ctbl{width:100%;border-collapse:collapse;background:var(--paper);font-size:14px;margin-bottom:8px}
+.ctbl td,.ctbl th{border:2px solid var(--line);padding:7px 8px;text-align:left}
+.ctbl th{background:var(--acc);color:#000;font-size:13px}
+.tm{background:var(--paper);border:2.5px solid var(--line);border-radius:6px;padding:14px 10px;text-align:center;box-shadow:5px 5px 0 var(--line)}
+.tm.work{background:var(--acc);color:#000}
+.tm-big{font-family:var(--disp);font-size:clamp(52px,17vw,96px);line-height:1.05;font-variant-numeric:tabular-nums}
+.tm-lab{font-weight:700;font-size:15px;min-height:1.3em}
+.tm-btns .btn{flex:1 1 0;font-size:17px}
+.btn:disabled{opacity:.4}
+.stps{display:grid;gap:8px;margin:14px 0}
+.stp{display:grid;grid-template-columns:1fr auto 64px auto;align-items:center;gap:8px;background:var(--paper);border:2px solid var(--line);border-radius:6px;padding:8px 10px}
+.stp b{text-align:center;font-size:18px}
+.stp .chipbtn{width:44px;height:40px;font-size:20px;padding:0}
 .err{color:#D0021B;font-weight:700;font-size:13px;margin-left:8px}
 .wallet{background:var(--paper);border:2.5px solid var(--line);border-radius:6px;padding:16px;box-shadow:5px 5px 0 var(--acc);margin:12px 0}
 .wallet .big{font-family:var(--disp);font-size:44px;line-height:1}
@@ -278,6 +303,7 @@ ol.list li::before{counter-increment:w;content:counter(w);position:absolute;left
     <button class="tab" role="tab" data-t="prep">Подготовка</button>
     <button class="tab" role="tab" data-t="tips">Советы</button>
     <button class="tab" role="tab" data-t="stk">Награды</button>
+    <button class="tab" role="tab" data-t="coach" id="tabCoach" hidden>🔒 Тренер</button>
   </div>
 
   <main id="view"></main>
@@ -945,12 +971,185 @@ function renderCoach(){
   if(coach){
     const who=target?`<div class="tgt">Отмечаете: <b>${esc(target.name||'без имени')}</b> · ${target.id} · ${target.st.balance} б.<button class="chipbtn" data-tgt-off>Мой дневник</button><button class="chipbtn" data-bind>📲 Привязать этот телефон</button></div>`:`<div class="tgt">Отмечаете: <b>этот телефон</b> · ${S.id}</div>`;
     const list=ridersOpen?`<div class="rlist"><input id="rq" placeholder="Поиск по имени или ID" value="${esc(rq)}" autocomplete="off">${riders===null?'<p>Загружаю список…</p>':(()=>{const q=rq.trim().toLowerCase();const f=riders.filter(r=>!q||r.name.toLowerCase().includes(q)||r.id.toLowerCase().includes(q));return f.length?f.slice(0,60).map(r=>`<button class="ritem" data-rider="${r.id}"><b>${esc(r.name||'без имени')}</b><span>${r.id} · ${r.balance} б.</span></button>`).join(''):'<p>Никого не нашёл. Ученик появится в списке, когда откроет дневник с интернетом и впишет имя.</p>'})()}</div>`:'';
-    c.innerHTML=`<div class="coach-on"><b>Режим тренера</b> — «Освоил», звёзды, бонусы и призы сохраняются в таблицу.${who}<div class="row"><button class="chipbtn" data-riders>👥 Ученики</button>${BONUS.map((b,i)=>`<button class="chipbtn" data-bonus="${i}">+${b[1]} ${esc(b[0].toLowerCase())}</button>`).join('')}<button class="chipbtn" data-coach-out>Выйти</button></div>${list}</div>`}
+    c.innerHTML=`<div class="coach-on"><b>Режим тренера</b> — «Освоил», звёзды, бонусы и призы сохраняются в таблицу.${who}<div class="row"><button class="chipbtn" data-coachtab>📋 Разминки, сила, секундомер, план</button><button class="chipbtn" data-riders>👥 Ученики</button>${BONUS.map((b,i)=>`<button class="chipbtn" data-bonus="${i}">+${b[1]} ${esc(b[0].toLowerCase())}</button>`).join('')}<button class="chipbtn" data-coach-out>Выйти</button></div>${list}</div>`}
   else if(pinOpen){c.innerHTML=`<label for="pin">Код тренера</label><div class="row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="12"><button class="chipbtn" data-pin-go>Войти</button><button class="chipbtn" data-pin-x>Отмена</button>${pinErr?`<span class="err">${pinErr}</span>`:''}</div>`;setTimeout(()=>{const p=$('#pin');if(p)p.focus()},0)}
   else c.innerHTML=`<button class="chipbtn" data-pin-open>🔒 Тренер</button>`;
 }
+/* ===== Раздел тренера: разминки, сила и растяжка, секундомер, план. Виден только в режиме тренера. ===== */
+const ALLD=['begovel','trampoline','scooter','rollers','bmx','wake','moto'];
+/* шаг: [название, секунды, что делать] */
+const WARMS=[
+ {n:'Классическая',sub:'Основная на каждый день. Мягко разогревает всё тело сверху вниз.',fit:ALLD,steps:[
+  ['Ходьба и дыхание',60,'Ходьба с кругами руками вперёд и назад, глубокий вдох носом, выдох ртом'],
+  ['Суставная разминка',180,'Сверху вниз по 8–10 раз: шея (наклоны, без кругов), плечи, локти, кисти, таз, колени, голеностопы'],
+  ['Лёгкий бег с заданиями',180,'По 30 секунд: обычный бег, захлёст голени, высокое бедро, приставные шаги правым и левым боком, спиной вперёд'],
+  ['Общеразвивающие упражнения',180,'Наклоны и повороты корпуса по 8; 10 приседаний; по 8 выпадов на ногу; махи ногами вперёд и в стороны по 8'],
+  ['Ускорения',60,'3 × 10 метров с места, обратно шагом']]},
+ {n:'Взрывная',sub:'Перед прыжками, трюками и стартами. Включает быстрые мышцы и реакцию.',fit:['trampoline','scooter','bmx','rollers','moto'],steps:[
+  ['Лёгкий бег',180,'Спокойно до первого тепла, последние 30 секунд — с высоким бедром'],
+  ['Суставная разминка',150,'Шея, плечи, кисти, поясница, колени, голеностопы — по 8 раз'],
+  ['Динамическая растяжка',180,'Махи ногами вперёд и в стороны по 10; выпад с поворотом корпуса по 6; «паук» — выпад, локоть к стопе, по 5'],
+  ['Прыжковая серия',150,'20 подскоков на носках; 20 прыжков ноги вместе-врозь; 8 выпрыгиваний из приседа; по 10 прыжков на каждой ноге'],
+  ['Включаем корпус',90,'Планка 30 секунд, лодочка 20 секунд, боковая планка по 20 секунд'],
+  ['Старт по сигналу',90,'3–4 рывка на 10 метров по хлопку тренера из разных положений: стоя, сидя, лёжа']]},
+ {n:'Баланс и координация',sub:'Для катания на ребре, доске и колёсах. Учит держать стойку и равновесие.',fit:['rollers','wake','scooter','begovel'],steps:[
+  ['Бег с заданиями',180,'По команде тренера: приставные шаги, скрестный шаг, спиной вперёд, смена направления по хлопку'],
+  ['Суставная разминка',150,'Особенно голеностопы, колени, таз и запястья — по 10 раз'],
+  ['Баланс',180,'На одной ноге по 30 секунд с открытыми и закрытыми глазами; «ласточка» по 15 секунд; 5 полуприседов на одной ноге'],
+  ['Координация',150,'Ходьба по линии вперёд и назад; 20 касаний «локоть — противоположное колено»; прыжки через линию вперёд-назад и влево-вправо по 10'],
+  ['Стойка райдера',90,'Колени согнуты, спина ровная, взгляд вперёд: 3 × 20 секунд, повороты головы и переносы веса с ноги на ногу']]},
+ {n:'Игровая для малышей',sub:'Для беговела и младших групп 4–7 лет. Всё в игре, без долгих объяснений.',fit:['begovel'],steps:[
+  ['Паровозик',120,'Бег друг за другом за тренером, по сигналу меняем движение: зайчик, мишка, цапля'],
+  ['Зарядка-зеркало',150,'Повторяем за тренером: голова, плечи, руки «мельница», колени, стопы'],
+  ['Светофор',120,'Зелёный — бежим, жёлтый — шагаем, красный — замри'],
+  ['Зверобика',150,'По 30 секунд: зайчик — прыжки, лягушка — присед и прыжок, краб — ходьба на руках и ногах спиной вниз, медведь — на четвереньках'],
+  ['Цапля и самолётик',60,'Стоим на одной ноге, руки в стороны, наклоны вправо и влево']]},
+ {n:'Экспресс',sub:'10 минут: когда мало времени, после долгого ожидания или перед стартом соревнований.',fit:ALLD,steps:[
+  ['Тепло',90,'Бег на месте или прыжки, пока не станет тепло'],
+  ['Суставная разминка',90,'Шея, плечи, кисти, таз, колени, голеностопы — по 6 раз'],
+  ['Динамика',120,'Махи ногами по 8, выпады с поворотом по 6, 10 приседаний'],
+  ['Активация',60,'10 выпрыгиваний из приседа, 20 секунд планки'],
+  ['Настрой',30,'3 глубоких вдоха, мысленно проехать трассу или прокрутить трюк']]}
+];
+/* специальная часть разминки — своя у каждого направления */
+const WSPEC={
+ trampoline:[['Разминочные прыжки на батуте',90,'Низко в центре сетки, стоп-прыжок каждые 5 прыжков'],['Базовые фигуры',90,'Группировка, разножка, складка, пол-оборота — по 3 раза, низко']],
+ scooter:[['Пробные круги',90,'Спокойно по парку, проверить самокат и покрытие'],['База без трюков',90,'Низкие банни-хопы, мягкие спуски, торможения']],
+ rollers:[['Разминочное катание',90,'Кроссоверы, торможения, езда спиной'],['База без трюков',90,'Пауэрслайд, прыжки на роликах на месте, спуски с малой рампы']],
+ bmx:[['Пробные круги',90,'Проверить тормоза и руль, мягкие спуски'],['База без трюков',90,'Низкие банни-хопы, мануал, спуски']],
+ wake:[['Имитация на берегу',90,'Стойка, рукоятка, загрузка канта — 5 раз; падение с отпусканием рукоятки'],['Плечи и хват',90,'Резинка: 15 тяг к поясу, вращения плечами, вис 20 секунд']],
+ moto:[['Шея и предплечья',60,'Наклоны шеи без кругов, 30 сжатий эспандера'],['Стойка на мотоцикле',60,'При заглушённом моторе: стоя на подножках, локти в стороны, колени держат бак'],['Ознакомительный круг',60,'Медленно, смотрим состояние трассы']],
+ begovel:[['Ходьба с беговелом',60,'Ведём рядом, руль двумя руками'],['Шагаем сидя',60,'Сидя на беговеле мелкими шагами, потом шаги длиннее'],['Накат и стоп',60,'Оттолкнулись — ножки вверх — стоп ногами по сигналу']]
+};
+const warmSteps=(w,k)=>[...w.steps,...WSPEC[k].map(s=>[s[0]+' · '+D[k].name.toLowerCase(),s[1],s[2]])];
+
+/* ОФП: [упражнение, младшие 7–10 лет, старшие 11+] */
+const STR_BASE=[['Приседания','10','15–20'],['Отжимания (младшим — от скамьи)','5','10–15'],['Планка','20 с','40–60 с'],['Выпрыгивания из приседа','6','10'],['Лодочка на животе','15 с','30 с'],['Выпады','6 на ногу','10 на ногу'],['Боковая планка','10 с','30 с на сторону']];
+const STR_SPEC={
+ trampoline:[['Свечка у стены','20 с','40 с'],['Подъём ног лёжа или в висе','5','10'],['Скакалка','30 с','60 с']],
+ scooter:[['Запрыгивания на скамью','6','10'],['Вис на турнике','15 с','30 с'],['Баланс на одной ноге на подушке','20 с','40 с']],
+ rollers:[['Подъёмы на носки','15','25'],['Присед на одной ноге до скамьи','4','8 на ногу'],['Боковые прыжки через линию','20 с','40 с']],
+ bmx:[['Вис на турнике','15 с','30 с'],['Обратные отжимания от скамьи','5','10'],['Тяга резинки от пола (как становая)','10','15']],
+ wake:[['Тяга резинки к поясу','10','15'],['Стульчик у стены','30 с','60 с'],['Вис на турнике','15 с','30 с']],
+ moto:[['Стульчик у стены','30 с','90 с'],['Эспандер','20 сжатий','40 сжатий'],['Вис на турнике','20 с','45 с']],
+ begovel:[['Зайчик','10 прыжков','—'],['Медвежья ходьба','5 метров','—'],['Цапля','10 с на ногу','—']]
+};
+/* растяжка: [упражнение, время, как] */
+const STRETCH=[['Передняя поверхность бедра','30 с на ногу','Стоя, пятка к ягодице, колени рядом'],['Задняя поверхность бедра','30 с','Сидя, наклон к прямой ноге, спина ровная'],['Икры','30 с на ногу','У стены, пятка прижата к полу'],['Ягодицы «четвёрка»','30 с на сторону','Лёжа, стопа на колено другой ноги, тянем колено к себе'],['Пах «бабочка»','30 с','Сидя, стопы вместе, колени мягко вниз'],['Плечи','20 с на руку','Рука поперёк груди, прижимаем второй рукой'],['Трицепс','20 с на руку','Рука за голову, локоть вверх'],['Спина','6 раз + 30 с','«Кошка-корова» на четвереньках, затем поза ребёнка']];
+const STRETCH_SPEC={
+ trampoline:[['Складка сидя','30 с','Для складки и сальто в складке: грудь к коленям, носки на себя'],['Шпагаты','по 30 с','Продольные и поперечный — для разножки, без рывков']],
+ scooter:[['Запястья','по 20 с','Ладонь к себе и от себя, пальцами вниз'],['Предплечья у стены','20 с','Ладонь на стене пальцами вниз']],
+ rollers:[['Пах и таз','30 с','Глубокий выпад, таз вниз — для фронтсайда и юнити'],['Голеностопы','по 20 с','Сидя, круги стопой и тянем носок на себя']],
+ bmx:[['Запястья','по 20 с','Ладонь к себе и от себя'],['Грудь и плечи у стены','30 с','Рука на стене, разворот корпуса']],
+ wake:[['Широчайшие у стены','30 с','Руки на стене, наклон вперёд, спина прямая'],['Поясница','30 с','Лёжа, колени к груди']],
+ moto:[['Шея','по 20 с','Наклоны в стороны, рукой слегка помогаем'],['Предплечья','по 20 с','Ладонь к себе и от себя']],
+ begovel:[['Котик','5 раз','Спинка вверх-вниз на четвереньках'],['Бабочка с машущими крыльями','30 с','Сидя, стопы вместе, коленки-крылья']]
+};
+
+/* план занятия: [этап, минуты, что делаем] */
+const PLAN90=[['Разминка',15,'Одна из 5 разминок — по погоде, группе и задаче дня'],['Повторение',15,'Освоенные элементы своего уровня, 2–3 раза каждый'],['Новый элемент',25,'Подводящие упражнения, затем попытки со страховкой. 2–3 новых элемента, не больше'],['Связки и катание',20,'Связки из дневника, свои линии, трасса или прогон'],['ОФП',10,'Круг из раздела «Сила»'],['Заминка и растяжка',5,'Спокойное движение и растяжка']];
+const PLAN60=[['Разминка',12,'Экспресс или короткая классическая'],['Повторение',10,'Освоенное, по 2 раза'],['Новый элемент',18,'1–2 элемента с подводящими'],['Связки и катание',10,'Связки из дневника'],['ОФП',5,'5 упражнений по 30 секунд'],['Заминка',5,'Растяжка']];
+const PLAN_NOTE={
+ trampoline:'На сетке по одному: пока один прыгает, остальные делают ОФП или подводящие на мате. Новые сальто — в начале «Нового элемента», пока все свежие.',
+ scooter:'Делите парк на зоны и линии заезда, чтобы не пересекаться. Трюки с вращением — в яму или на мягкое, пока не стабильно.',
+ rollers:'Новые грайнды — сначала на низкой фигуре. Падения учим отдельно в начале сезона.',
+ bmx:'Перед занятием — осмотр тормозов. Новые элементы — сначала на ровном, потом на фигуре.',
+ wake:'Время на воде ограничено очередью: на берегу в это время ОФП, имитация и разбор ошибок. После воды — сразу сухая одежда.',
+ moto:'Заезды по 10–15 минут с отдыхом и разбором. Осмотр мотоцикла перед первым заездом. Пить воду между заездами.',
+ begovel:'Занятие 30–45 минут, задания по 3–5 минут, много игры. Сложное — с родителем рядом.'
+};
+const CYCLE=[['Неделя 1 — база','Повторяем освоенное, проверяем технику. Больше ОФП, меньше новых элементов.'],['Неделя 2 — новое','2–3 элемента следующего уровня дневника. Подводящие и первые попытки.'],['Неделя 3 — закрепление','Новые элементы в связки, «3 чистых раза подряд». Свои линии.'],['Неделя 4 — зачёт','Ставим «Освоил» и звёзды в приложении, бонусы. Нагрузка полегче, можно мини-соревнование.']];
+const LOAD=[['4–6 лет','30–45 минут, 2 раза в неделю'],['7–10 лет','60 минут, 2–3 раза в неделю'],['11–14 лет','60–90 минут, 3–4 раза в неделю'],['15+','90–120 минут, 3–5 раз в неделю']];
+const NEWTRICK=['Подводящие упражнения получаются уверенно','Предыдущий элемент — 3 чистых раза подряд','Есть страховка: тренер, яма, лонжа или мягкое покрытие','Райдер свежий: не в конце занятия и не уставший','Райдер сам хочет пробовать — не уговариваем'];
+
+/* ---- секундомер / интервалы / программа ---- */
+const TM={ps:null,mode:'sw',run:false,t0:0,acc:0,laps:[],int:{w:30,r:15,n:8},seq:null,title:'',i:0,end:0,left:0,iv:null,last:-1,wl:null};
+let CT={sec:'warm',open:-1};
+const toTimer=()=>{CT.sec='timer';render();tmStart();const x=$('#tmBox');if(x)x.scrollIntoView({block:'center'})};
+const fmt=(s,tenth)=>{s=Math.max(0,s);const m=Math.floor(s/60),x=s-m*60;return m+':'+String(Math.floor(x)).padStart(2,'0')+(tenth?'.'+Math.floor((x%1)*10):'')};
+let AC=null;
+function beep(f,d,n){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state==='suspended')AC.resume();for(let k=0;k<(n||1);k++){const o=AC.createOscillator(),g=AC.createGain(),t=AC.currentTime+k*(d+.08);o.frequency.value=f;g.gain.setValueAtTime(.25,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+d)}}catch(e){}try{navigator.vibrate&&navigator.vibrate(d>.2?300:80)}catch(e){}}
+async function wake(on){try{if(on&&!TM.wl&&navigator.wakeLock)TM.wl=await navigator.wakeLock.request('screen');if(!on&&TM.wl){TM.wl.release();TM.wl=null}}catch(e){}}
+function intSeq(){const a=[['Приготовься',10]];for(let r=1;r<=TM.int.n;r++){a.push(['Работа · раунд '+r+' из '+TM.int.n,TM.int.w]);if(r<TM.int.n&&TM.int.r)a.push(['Отдых',TM.int.r])}return a}
+function swNow(){return TM.acc+(TM.run?Date.now()-TM.t0:0)}
+function tmStart(){if(TM.run)return;if(TM.mode!=='sw'&&TM.seq&&TM.i>=TM.seq.length){TM.i=0;TM.left=TM.seq[0][1]*1000}beep(880,.05);TM.run=true;
+  if(TM.mode==='sw')TM.t0=Date.now();
+  else{if(TM.mode==='int'&&!TM.seq){TM.seq=intSeq();TM.title='Интервалы';TM.i=0;TM.left=TM.seq[0][1]*1000}TM.end=Date.now()+TM.left}
+  clearInterval(TM.iv);TM.iv=setInterval(tmTick,100);wake(true);tmDraw()}
+function tmPause(){if(!TM.run)return;TM.run=false;clearInterval(TM.iv);if(TM.mode==='sw')TM.acc+=Date.now()-TM.t0;else TM.left=TM.end-Date.now();wake(false);tmDraw()}
+function tmReset(){tmPause();TM.acc=0;TM.laps=[];if(TM.mode==='int')TM.seq=null;if(TM.seq){TM.i=0;TM.left=TM.seq[0][1]*1000}TM.last=-1;tmDraw()}
+function tmNext(){if(!TM.seq)return;TM.i++;if(TM.i>=TM.seq.length){TM.run=false;clearInterval(TM.iv);wake(false);TM.i=TM.seq.length;TM.left=0;beep(660,.4,3);toast('Готово!');tmDraw();return}
+  TM.left=TM.seq[TM.i][1]*1000;TM.end=Date.now()+TM.left;TM.last=-1;beep(TM.seq[TM.i][0]==='Отдых'?520:880,.35);tmDraw()}
+function tmTick(){if(TM.mode==='sw'){tmDraw(true);return}const rem=TM.end-Date.now();
+  if(rem<=0){tmNext();return}const s=Math.ceil(rem/1000);if(s<=3&&s!==TM.last){TM.last=s;beep(990,.08)}tmDraw(true)}
+function tmLoad(title,steps){tmPause();TM.mode='prog';TM.ps={title,steps};TM.title=title;TM.seq=steps.map(x=>[x[0],x[1]]);TM.i=0;TM.left=TM.seq[0][1]*1000;TM.last=-1}
+function tmBig(){if(TM.mode==='sw')return fmt(swNow()/1000,true);if(!TM.seq)return fmt(TM.int.w);if(TM.i>=TM.seq.length)return '0:00';return fmt(Math.ceil((TM.run?TM.end-Date.now():TM.left)/1000))}
+function tmDraw(fast){const b=$('#tmBig');if(!b)return;b.textContent=tmBig();
+  const cur=TM.seq&&TM.seq[TM.i];const box=$('#tmBox');if(box)box.className='tm'+(TM.mode!=='sw'&&cur?(cur[0]==='Отдых'||cur[0]==='Приготовься'?' rest':' work'):'');
+  if(fast)return;if(tab==='coach')$('#view').innerHTML=coachTab()}
+function tmHTML(){
+  const m=TM.mode,cur=TM.seq&&TM.seq[TM.i],nxt=TM.seq&&TM.seq[TM.i+1];
+  const modes=[['sw','Секундомер'],['int','Интервалы']].concat(TM.ps?[['prog','Программа']]:[]);
+  let h=`<div class="lvl-nav">${modes.map(x=>`<button data-tm-mode="${x[0]}" class="${m===x[0]?'full':''}">${x[1]}</button>`).join('')}</div>`;
+  const lab=m==='sw'?(TM.laps.length?'Круг '+(TM.laps.length+1):'&nbsp;'):cur?esc(cur[0]):TM.seq&&TM.i>=TM.seq.length?'Готово':m==='int'?'Нажми «Старт»':'&nbsp;';
+  h+=`<div class="tm" id="tmBox"><div class="tm-lab">${m==='prog'?esc(TM.title)+' · ':''}${lab}</div><div class="tm-big" id="tmBig">${tmBig()}</div><div class="tm-lab">${m!=='sw'&&nxt?'Дальше: '+esc(nxt[0])+' · '+fmt(nxt[1]):'&nbsp;'}</div></div>`;
+  h+=`<div class="row tm-btns"><button class="btn" data-tm="${TM.run?'pause':'start'}">${TM.run?'Пауза':'Старт'}</button>${m==='sw'?`<button class="btn ghost" data-tm="lap" ${TM.run?'':'disabled'}>Круг</button>`:`<button class="btn ghost" data-tm="next" ${TM.seq&&TM.i<TM.seq.length?'':'disabled'}>Дальше</button>`}<button class="btn ghost" data-tm="reset">Сброс</button></div>`;
+  if(m==='sw'){if(TM.laps.length){const L=TM.laps.map((t,i)=>t-(TM.laps[i-1]||0)),best=Math.min(...L);
+      h+=`<ul class="log">${L.map((x,i)=>`<li><span>Круг ${i+1}${x===best&&L.length>1?' · лучший':''}</span><b>${fmt(x/1000,true)}</b></li>`).reverse().join('')}</ul>`}
+    else h+=`<p class="note">Круги, заезды, время на трассе. «Круг» запоминает время отрезка, лучший отмечается.</p>`}
+  else if(m==='int'){const st=(k,lab,step,u)=>`<div class="stp"><span>${lab}</span><button class="chipbtn" data-int="${k}:-${step}" ${TM.run?'disabled':''}>−</button><b>${TM.int[k]}${u}</b><button class="chipbtn" data-int="${k}:${step}" ${TM.run?'disabled':''}>+</button></div>`;
+    h+=`<div class="stps">${st('w','Работа',5,' с')}${st('r','Отдых',5,' с')}${st('n','Раунды',1,'')}</div><div class="row">${[[30,15,8],[40,20,6],[20,10,8],[60,30,5],[45,15,6]].map(p=>`<button class="chipbtn" data-ipre="${p.join(',')}">${p[0]}/${p[1]} × ${p[2]}</button>`).join('')}</div><p class="note">Всего ${fmt(10+TM.int.n*TM.int.w+(TM.int.n-1)*TM.int.r)}. Сигнал на смену работы и отдыха, три коротких — за 3 секунды до конца. Экран не гаснет, пока идёт таймер.</p>`}
+  else if(TM.seq){h+=`<ol class="list steps">${TM.seq.map((x,i)=>`<li class="${i===TM.i?'cur':i<TM.i?'past':''}"><b>${esc(x[0])} <em>${fmt(x[1])}</em></b></li>`).join('')}</ol>`}
+  return h}
+
+function stepsHTML(a,unit){return `<ol class="list steps">${a.map(x=>`<li><b>${esc(x[0])} <em>${unit==='m'?x[1]+' мин':unit==='raw'?esc(x[1]):fmt(x[1])}</em></b><span>${esc(x[2])}</span></li>`).join('')}</ol>`}
+function coachTab(){
+  const k=S.disc,d=D[k],sec=CT.sec;
+  let h=`<p class="note">🔒 Видно только в режиме тренера. Направление: <b>${esc(d.name)}</b> — меняется кнопками вверху страницы.</p><div class="lvl-nav wrapn">${[['warm','Разминки'],['str','Сила и растяжка'],['timer','Секундомер'],['plan','План']].map(x=>`<button data-cs="${x[0]}" class="${sec===x[0]?'full':''}">${x[1]}</button>`).join('')}</div>`;
+  if(sec==='warm'){
+    const order=WARMS.map((w,i)=>i).sort((a,b)=>(WARMS[b].fit.includes(k))-(WARMS[a].fit.includes(k)));
+    h+=order.map(i=>{const w=WARMS[i],st=warmSteps(w,k),tot=st.reduce((a,x)=>a+x[1],0),fit=w.fit.includes(k);
+      return `<div class="wu${fit?' fit':''}"><div class="wu-h"><h3>${esc(w.n)}</h3><b>${Math.round(tot/60)} мин</b></div><p class="meta">${esc(w.sub)}${fit?' <span class="tag">для: '+esc(d.name.toLowerCase())+'</span>':''}</p>`+
+      `<details class="how"${CT.open===i?' open':''} data-wopen="${i}"><summary>Упражнения (${st.length})</summary>${stepsHTML(st)}</details><div class="row"><button class="chipbtn" data-wrun="${i}">▶ По таймеру</button></div></div>`}).join('')+
+      `<p class="note">Специальная часть в конце меняется вместе с направлением. Холодно или долго ждали заезда — добавь 2–3 минуты бега в начале.</p>`;
+  }else if(sec==='str'){
+    const tbl=a=>`<table class="ctbl"><tr><th>Упражнение</th><th>7–10 лет</th><th>11+</th></tr>${a.map(x=>`<tr><td>${esc(x[0])}</td><td>${esc(x[1])}</td><td>${esc(x[2])}</td></tr>`).join('')}</table>`;
+    h+=`<div class="blk">ОФП-круг</div><p class="note">Круг подряд без отдыха, потом 1 минута отдыха. Младшим 2 круга, старшим 3. До 14 лет — только вес своего тела и резинки. 2–3 раза в неделю, в конце занятия или отдельно.</p>${tbl(STR_BASE)}`+
+      `<div class="blk">Добавка: ${esc(d.name.toLowerCase())}</div>${tbl(STR_SPEC[k])}`+
+      `<div class="row"><button class="chipbtn" data-strrun>▶ Круг по таймеру 40/20</button></div>`+
+      `<div class="blk">Растяжка</div><p class="note">После тренировки, на тёплые мышцы. Тянем плавно, без рывков и боли, дышим спокойно.</p>${stepsHTML(STRETCH,'raw')}`+
+      `<div class="blk">Растяжка: ${esc(d.name.toLowerCase())}</div>${stepsHTML(STRETCH_SPEC[k],'raw')}`+
+      `<div class="blk">Для райдера</div><p class="note">Короткая версия для ученика — во вкладке «Подготовка».</p>`;
+  }else if(sec==='timer'){h+=tmHTML()}
+  else{
+    h+=`<div class="blk">Занятие 90 минут</div>${stepsHTML(PLAN90,'m')}<div class="row"><button class="chipbtn" data-prun="90">▶ По таймеру</button></div>`+
+      `<div class="blk">Занятие 60 минут</div>${stepsHTML(PLAN60,'m')}<div class="row"><button class="chipbtn" data-prun="60">▶ По таймеру</button></div>`+
+      `<div class="safety"><b>${esc(d.name)}</b>${esc(PLAN_NOTE[k])}</div>`+
+      `<div class="blk">Цикл на 4 недели</div><ul class="list">${CYCLE.map(x=>`<li><b>${esc(x[0])}</b><span>${esc(x[1])}</span></li>`).join('')}</ul>`+
+      `<div class="blk">Нагрузка по возрасту</div><ul class="list">${LOAD.map(x=>`<li><b>${esc(x[0])}</b><span>${esc(x[1])}</span></li>`).join('')}</ul>`+
+      `<div class="blk">Перед новым трюком</div><ul class="list">${NEWTRICK.map(x=>`<li><b>☐ ${esc(x)}</b></li>`).join('')}</ul>`;
+  }
+  return h}
+document.addEventListener('click',e=>{
+  if(!coach)return;
+  setCoach(true,coachPin); /* таймер выхода 20 минут считаем от последнего действия тренера */
+  const g=x=>e.target.closest(x);let b;
+  if(b=g('[data-coachtab]')){tab='coach';render();document.querySelector('.tabs').scrollIntoView({block:'start'});return}
+  if(b=g('[data-cs]')){CT.sec=b.dataset.cs;render();return}
+  if(b=g('[data-wrun]')){const i=+b.dataset.wrun,w=WARMS[i];tmLoad('Разминка «'+w.n+'»',warmSteps(w,S.disc));toTimer();return}
+  if(b=g('[data-prun]')){tmLoad('Занятие '+b.dataset.prun+' мин',(b.dataset.prun==='90'?PLAN90:PLAN60).map(x=>[x[0],x[1]*60]));toTimer();return}
+  if(b=g('[data-strrun]')){const ex=[...STR_BASE,...STR_SPEC[S.disc]].filter(x=>x[1]!=='—'),a=[['Приготовься',10]];ex.forEach((x,i)=>{a.push([x[0],40]);if(i<ex.length-1)a.push(['Отдых',20])});tmLoad('ОФП-круг',a);toTimer();return}
+  if(b=g('[data-tm-mode]')){const m=b.dataset.tmMode;if(m===TM.mode)return;if(m==='prog'){if(TM.ps)tmLoad(TM.ps.title,TM.ps.steps)}else{tmPause();TM.mode=m;if(m==='int'){TM.seq=null;TM.left=0}}render();return}
+  if(b=g('[data-tm]')){const a=b.dataset.tm;if(a==='start')tmStart();else if(a==='pause')tmPause();else if(a==='reset')tmReset();else if(a==='next')tmNext();else if(a==='lap'&&TM.run){TM.laps.push(swNow());beep(880,.05);tmDraw()}return}
+  if(b=g('[data-int]')){const [k,v]=b.dataset.int.split(':'),lim={w:[5,600],r:[0,300],n:[1,30]}[k];TM.int[k]=Math.min(lim[1],Math.max(lim[0],TM.int[k]+ +v));TM.seq=null;render();return}
+  if(b=g('[data-ipre]')){const p=b.dataset.ipre.split(',').map(Number);TM.int={w:p[0],r:p[1],n:p[2]};tmPause();TM.mode='int';TM.seq=null;render();return}
+});
+document.addEventListener('toggle',e=>{const w=e.target.dataset&&e.target.dataset.wopen;if(w!==undefined)CT.open=e.target.open?+w:(CT.open===+w?-1:CT.open)},true);
+
 function render(){
   const d=D[S.disc];
+  if(tab==='coach'&&!coach){tab='tricks';tmPause()}
+  $('#tabCoach').hidden=!coach;
   document.documentElement.style.setProperty('--acc',d.c);
   $('#heroDisc').textContent=d.name.toLowerCase();$('#heroVerb').textContent=T().hero;$('#tabTricks').textContent=T().tab;
   $('#disc').innerHTML=ORDER.map(k=>`<button class="chip" style="--c:${D[k].c};--r:${D[k].r}" data-k="${k}" aria-pressed="${k===S.disc}">${D[k].name}</button>`).join('');
@@ -964,7 +1163,8 @@ function render(){
   $('#next').innerHTML=st.next?`Следующая цель: <b>${esc(st.next.x.t[0])}</b>`:'Всё освоено. Придумай свою связку.';
   document.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.t===tab));
   const v=$('#view');
-  if(tab==='tricks'){
+  if(tab==='coach'){v.innerHTML=coachTab()}
+  else if(tab==='tricks'){
     v.innerHTML=`<div class="safety"><b>Перед тренировкой</b>Разминка 10–15 минут, экипировка надета и застёгнута. После — заминка. <button data-t2="warm">Разминка и безопасность</button></div><p class="note">Жми кнопку справа: не начат → пробую → получается. «Освоил», звёзды и баллы ставит только тренер — со своего телефона или с твоего. Связки — комбинации уже освоенных ${T().gen}. С жёлтой меткой — только с тренером.</p>`+
     `<div class="lvl-nav">${LEVELS.map((n,l)=>`<button data-go="${l}" class="${st.lv[l]?'full':''}">${n}</button>`).join('')}<button data-go="lines">${LINES[S.disc].many}</button></div>`+
     d.levels.map((L,l)=>{const all=items(L),dn=all.filter(x=>sOf(l,x.id)===3).length;
