@@ -57,6 +57,12 @@ img{max-width:100%}
 .card{background:var(--paper);border:2.5px solid var(--line);border-radius:6px;padding:16px;box-shadow:6px 6px 0 var(--acc);position:relative}
 .card label{font-size:13px;color:var(--muted)}
 .card input{display:block;width:100%;border:none;border-bottom:2.5px dashed var(--line);background:transparent;font-family:var(--disp);font-size:22px;padding:4px 0 6px;margin-top:2px}
+.bike{margin-top:14px;border-top:2.5px dashed var(--line);padding-top:10px}
+.bike h3{margin:0 0 6px;font-size:14px;font-weight:900}
+.bike .g{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px}
+.bike label{display:block}
+.card .bike input,.bike select{display:block;width:100%;font-family:var(--body);font-size:16px;border:2px solid var(--line);border-radius:6px;padding:7px 8px;margin-top:2px;background:var(--bg);color:var(--ink)}
+.bike .ro{font-weight:700;font-size:15px}
 .stats{display:flex;gap:18px;margin-top:14px;flex-wrap:wrap}
 .stat b{font-family:var(--disp);font-weight:400;font-size:24px;display:block;line-height:1}
 .stat small{color:var(--muted)}
@@ -285,6 +291,7 @@ ol.list li::before{counter-increment:w;content:counter(w);position:absolute;left
     <div class="lvlnow" id="lvlnow">Старт</div>
     <label for="name">Райдер <span id="rid" style="float:right;font-weight:700"></span></label>
     <input id="name" placeholder="Твоё имя" autocomplete="off" maxlength="40">
+    <div class="bike" id="bike" hidden></div>
     <div class="stats">
       <div class="stat"><b id="sDone">0</b><small>освоено</small></div>
       <div class="stat"><b id="sWork">0</b><small>в работе</small></div>
@@ -888,7 +895,7 @@ function syncNow(){
     (S.lines[k]||[]).forEach(r=>{if(r&&r.s===3)pts+=(r.st||0)*LINE_W});
     const cur=lv.findIndex(x=>!x);return{key:k,name:d.name,level:cur<0?'Легенда пройдена':LEVELS[cur],done,total:tot,stickers:lv.filter(Boolean).length,points:pts}}).filter(x=>x.done>0||(S.p[x.key]&&Object.keys(S.p[x.key]).length));
   const log=wallet().log;
-  const body={id:S.id,name:S.name||'',updated:new Date().toISOString(),balance:balance(),earned:earned(),spent:-log.filter(x=>x.pts<0).reduce((a,x)=>a+x.pts,0),bonus:log.filter(x=>x.pts>0).reduce((a,x)=>a+x.pts,0),disciplines:disc,log:log.slice(-50)};
+  const body={id:S.id,name:S.name||'',bike:hasBike(S.bike)?S.bike:null,updated:new Date().toISOString(),balance:balance(),earned:earned(),spent:-log.filter(x=>x.pts<0).reduce((a,x)=>a+x.pts,0),bonus:log.filter(x=>x.pts>0).reduce((a,x)=>a+x.pts,0),disciplines:disc,log:log.slice(-50)};
   try{fetch(SYNC_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(body)}).catch(()=>{})}catch(e){}
 }
 const SERVER=/^https:\/\//.test(SYNC_URL);
@@ -900,7 +907,7 @@ async function api(body){const r=await fetch(SYNC_URL,{method:'POST',headers:{'C
 async function getState(id){const r=await fetch(SYNC_URL+'?a=state&id='+encodeURIComponent(id));return r.json()}
 function toLocal(st){const p={},ln={};const E=(st&&st.elements)||{};for(const disc in E)for(const key in E[disc]){const v=E[disc][key];
   if(key[0]==='L'){(ln[disc]=ln[disc]||[])[+key.slice(1)]={txt:'',s:3,st:v.st,d:v.d}}else (p[disc]=p[disc]||{})[key]={s:3,st:v.st,d:v.d}}return{p,ln}}
-function mergeServer(st){if(!st||!st.ok)return;S.srv={balance:st.balance,earned:st.earned,bonus:st.bonus,spent:st.spent,log:st.log||[]};
+function mergeServer(st){if(!st||!st.ok)return;if(st.bike&&hasBike(st.bike)&&!hasBike(S.bike))S.bike=Object.assign({},st.bike);S.srv={balance:st.balance,earned:st.earned,bonus:st.bonus,spent:st.spent,log:st.log||[]};
   const E=st.elements||{};
   ORDER.forEach(disc=>{const p=S.p[disc]||(S.p[disc]={}),e=E[disc]||{};
     for(const k in p){if(p[k]&&p[k].s===3&&!e[k]){p[k].s=2;p[k].st=0;p[k].d=''}}
@@ -1146,6 +1153,21 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('toggle',e=>{const w=e.target.dataset&&e.target.dataset.wopen;if(w!==undefined)CT.open=e.target.open?+w:(CT.open===+w?-1:CT.open)},true);
 
+const BIKE_CLS=['Питбайк','Электро (детский)','50 см³','65 см³','85 см³','125 см³ (2T)','MX2 · 250 см³ (4T)','MX1/Open · 450 см³','Эндуро','Другое'];
+const BIKE_BR=['KTM','Husqvarna','GasGas','Yamaha','Honda','Kawasaki','Suzuki','Beta','TM','Sherco','Kayo','BSE','Motoland','Avantis','Progasi','Regulmoto','YCF','Apollo','Stels'];
+const BIKE_F=[['cls','Класс'],['brand','Марка'],['model','Модель'],['year','Год']];
+const bikeOf=()=>target?((target.st&&target.st.bike)||{}):(S.bike||(S.bike={}));
+const hasBike=b=>!!(b&&(b.cls||b.brand||b.model||b.year));
+function bikeHTML(){const b=bikeOf();
+  if(target)return `<h3>🏍 Мотоцикл</h3><div class="ro">${hasBike(b)?BIKE_F.map(f=>b[f[0]]).filter(Boolean).map(esc).join(' · '):'Ученик ещё не заполнил'}</div>`;
+  const yNow=new Date().getFullYear()+1,ys=[];for(let y=yNow;y>=1995;y--)ys.push(y);
+  const opt=(a,v)=>`<option value="">—</option>`+a.map(x=>`<option${String(x)===String(v||'')?' selected':''}>${x}</option>`).join('');
+  return `<h3>🏍 Мой мотоцикл</h3><div class="g">`+
+  `<label>Класс<select data-bike="cls">${opt(BIKE_CLS,b.cls)}</select></label>`+
+  `<label>Год<select data-bike="year">${opt(ys,b.year)}</select></label>`+
+  `<label>Марка<input data-bike="brand" list="bikeBr" maxlength="30" autocomplete="off" value="${esc(b.brand||'')}" placeholder="KTM"></label>`+
+  `<label>Модель<input data-bike="model" maxlength="40" autocomplete="off" value="${esc(b.model||'')}" placeholder="65 SX"></label>`+
+  `</div><datalist id="bikeBr">${BIKE_BR.map(x=>`<option value="${x}">`).join('')}</datalist>`}
 function render(){
   const d=D[S.disc];
   if(tab==='coach'&&!coach){tab='tricks';tmPause()}
@@ -1153,6 +1175,7 @@ function render(){
   document.documentElement.style.setProperty('--acc',d.c);
   $('#heroDisc').textContent=d.name.toLowerCase();$('#heroVerb').textContent=T().hero;$('#tabTricks').textContent=T().tab;
   $('#disc').innerHTML=ORDER.map(k=>`<button class="chip" style="--c:${D[k].c};--r:${D[k].r}" data-k="${k}" aria-pressed="${k===S.disc}">${D[k].name}</button>`).join('');
+  const bk=$('#bike'),bkOn=S.disc==='moto';bk.hidden=!bkOn;if(bkOn&&!bk.contains(document.activeElement))bk.innerHTML=bikeHTML();
   $('#name').value=target?(target.name||''):(S.name||'');$('#name').readOnly=!!target;$('#rid').textContent='ID '+(target?target.id:S.id);
   const st=stats(),stk=st.lv.filter(Boolean).length;
   $('#sDone').textContent=st.done+' / '+st.tot;$('#sWork').textContent=st.work;$('#sStk').textContent=stk+' / '+d.levels.length;
@@ -1230,7 +1253,7 @@ async function tryPin(){const p=$('#pin');if(!p)return;const v=p.value.trim();if
   pinErr='Проверяю…';try{const r=await api({a:'login',pin:v});if(r&&r.ok){pinOpen=false;pinErr='';setCoach(true,v);render();toast('Режим тренера на 20 минут')}else pinErr='Неверный код';}
   catch(e){pinErr='Нужен интернет'}render()}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='pin')tryPin()});
-document.addEventListener('input',e=>{if(e.target.id==='rq'){rq=e.target.value;const pos=e.target.selectionStart;render();const q=$('#rq');if(q){q.focus();q.setSelectionRange(pos,pos)}return}const x=e.target.closest('[data-ltxt]');if(x&&target)return;if(x){lines()[+x.dataset.ltxt].txt=x.value;save()}});
+document.addEventListener('input',e=>{if(e.target.id==='rq'){rq=e.target.value;const pos=e.target.selectionStart;render();const q=$('#rq');if(q){q.focus();q.setSelectionRange(pos,pos)}return}const bf=e.target.closest('[data-bike]');if(bf){if(target)return;S.bike=S.bike||{};S.bike[bf.dataset.bike]=bf.value.trim();save();return}const x=e.target.closest('[data-ltxt]');if(x&&target)return;if(x){lines()[+x.dataset.ltxt].txt=x.value;save()}});
 $('#reset').onclick=()=>{if(!coach){toast('Сбросить прогресс может только тренер');return}if(target){toast('Сброс работает только на телефоне ученика');return}if(confirm('Сбросить прогресс по дисциплине «'+D[S.disc].name+'»?')){S.p[S.disc]={};S.lines[S.disc]=[];save();render()}};
 $('#theme').onclick=()=>{const r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
 $('#brands').innerHTML=logosHTML();
